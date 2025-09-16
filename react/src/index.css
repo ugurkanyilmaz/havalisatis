@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global base reset & layout tightening */
+* {box-sizing:border-box;}
+html, body, #root {height:100%;}
+body {margin:0; padding:0; background:linear-gradient(145deg,#f3f4f6,#e9ebee);} 
+
+:root {
+	--bg-base: #f5f6f8;
+	--bg-header: rgba(255,255,255,0.6);
+	--text-primary: #1a1a1a;
+	--surface: #ffffff;
+}
+
+:root[data-theme='dark'] {
+	--bg-base: #111315;
+	--bg-header: rgba(20,22,24,0.7);
+	--text-primary: #f4f5f6;
+	--surface: #1e2226;
+}
+
+html, body { background: var(--bg-base); color: var(--text-primary); }
+.dark-surface { background: var(--surface); }
+
+/* Remove default scroll gap around pages on mobile */
+body {overscroll-behavior-y:none; -webkit-font-smoothing:antialiased;}
+
+/* Auth wrapper edge-to-edge tweak (override) */
+.auth-wrapper {padding:0 !important; border-radius:0; background:linear-gradient(130deg,#262729,#1f1f20);} 
+.auth-shell {max-width:100% !important; border-radius:0;}
+.auth-side {border-radius:0 !important;}
+.auth-box {border-radius:0 !important; min-height:100vh;}
+
+@media (min-width:1081px){
+	.auth-wrapper {padding:0;}
+	.auth-box {min-height:auto; border-radius:22px;}
+	.auth-side {border-radius:22px 0 0 22px;}
+	.auth-shell {max-width:1180px !important; padding:2.5rem 2.2rem;}
+}
+
+/* Home hero remove outer white band */
+.hero-new {margin:0;}
+

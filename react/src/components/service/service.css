@@ -1,0 +1,42 @@
+.service-shell {min-height:100vh; background:#f3f6f9; display:flex; flex-direction:column;}
+.service-nav {background:linear-gradient(100deg,#0d1b27,#1f3d5a); padding:1.5rem 1rem 1rem; color:#fff;}
+.svc-title {margin:0 0 .75rem; font-size:1.75rem; letter-spacing:.5px;}
+.svc-tabs {display:flex; gap:1rem; flex-wrap:wrap;}
+.svc-tabs a {text-decoration:none; color:#c9d6e2; font-weight:600; font-size:.85rem; padding:.55rem .9rem; border-radius:30px; background:rgba(255,255,255,.06); backdrop-filter:blur(4px); transition:.25s background, .25s color;}
+.svc-tabs a.active {background:#ffb400; color:#1d2731;}
+.svc-tabs a:hover:not(.active) {background:rgba(255,255,255,.18); color:#fff;}
+.home-link-mini {margin-left:auto;}
+.service-outlet {flex:1; padding:2rem clamp(.75rem,2vw,2rem) 3rem; max-width:1100px; width:100%; margin:0 auto;}
+.card-like {background:#fff; padding:1.75rem 1.5rem 2rem; border-radius:18px; box-shadow:0 8px 30px -10px rgba(0,0,0,.15); border:1px solid #e2e8f0; display:flex; flex-direction:column; gap:1.1rem;}
+.card-like h2 {margin:0; font-size:1.35rem;}
+.muted {margin:0; font-size:.75rem; color:#5b6b79;}
+.appt-form {display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(220px,1fr));}
+.appt-form label {font-size:.7rem; font-weight:600; text-transform:uppercase; letter-spacing:.8px; display:flex; flex-direction:column; gap:.4rem; color:#384856;}
+.appt-form input, .appt-form select, .appt-form textarea, .filter {padding:.7rem .75rem; border:1px solid #d2dae2; border-radius:10px; background:#f8fafc; font-size:.8rem; font-family:inherit; resize:vertical;}
+.appt-form textarea {grid-column:1 / -1;}
+.appt-form input:focus, .appt-form select:focus, .appt-form textarea:focus, .filter:focus {outline:none; border-color:#ffb400; background:#fff;}
+.appt-form button {grid-column:1 / -1; justify-self:start; background:#ffb400; border:none; padding:.8rem 1.25rem; border-radius:10px; font-weight:700; font-size:.8rem; letter-spacing:.5px; cursor:pointer; transition:.25s background, .25s transform;}
+.appt-form button:disabled {opacity:.6; cursor:default;}
+.appt-form button:hover:not([disabled]) {background:#ffc647;}
+.records-table {display:flex; flex-direction:column; gap:.4rem; margin-top:.5rem;}
+.records-table .thead {display:grid; grid-template-columns:110px 1fr 110px 2fr; font-size:.6rem; text-transform:uppercase; letter-spacing:1px; font-weight:700; color:#4b5b68; padding:0 .25rem;}
+.records-table .row {display:grid; grid-template-columns:110px 1fr 110px 2fr; align-items:start; gap:.5rem; background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:.65rem .75rem .7rem; font-size:.7rem;}
+.records-table .row .desc {font-size:.65rem; color:#485866;}
+.status {display:inline-block; padding:.25rem .55rem; border-radius:30px; font-size:.55rem; font-weight:700; letter-spacing:.5px; background:#d0d7de; color:#1d2731;}
+.status.tamamlandı {background:#c2f0d0; color:#125c2b;}
+.status.beklemede {background:#ffe9b3; color:#8a5a00;}
+.status.serviste {background:#d4e9ff; color:#0a4c80;}
+.filter {margin-top:.75rem; width:100%;}
+.empty {text-align:center; padding:1rem; font-size:.65rem; color:#6b7c89;}
+@media (max-width:760px){
+  .records-table .thead, .records-table .row {grid-template-columns:90px 1fr 90px 1.5fr;}
+}
+@media (max-width:560px){
+  .records-table .thead {display:none;}
+  .records-table .row {grid-template-columns:1fr;}
+  .records-table .row span {display:flex; gap:.25rem;}
+  .records-table .row span:nth-child(1)::before {content:'Tarih:'; font-weight:600;}
+  .records-table .row span:nth-child(2)::before {content:'Ürün:'; font-weight:600;}
+  .records-table .row span:nth-child(3)::before {content:'Durum:'; font-weight:600;}
+  .records-table .row span:nth-child(4)::before {content:'Detay:'; font-weight:600;}
+}
