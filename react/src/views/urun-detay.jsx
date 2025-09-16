@@ -506,7 +506,7 @@ export default function UrunDetay() {
     if (!p) return null;
     const baseTitle = p?.seo?.meta_title || p?.title || p?.sku || '';
     const title = baseTitle ? `${baseTitle} | Havalı Satış` : 'Havalı Satış';
-    const description = p?.seo?.meta_explanation || p?.description || '';
+  const description = p?.seo?.meta_description || p?.description || '';
     const img = getProductImage(p);
     const imgAlt = p?.title || p?.sku || '';
     const url = typeof window !== 'undefined' ? window.location.href : '';

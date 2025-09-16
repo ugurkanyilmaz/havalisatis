@@ -182,7 +182,7 @@ async def import_excel(file: UploadFile = File(...), db: Session = Depends(get_d
 
     # Accept the following headers (case-insensitive):
     # parent_category, child_category, subchild_category,
-    # sku, title, price, product_description, feature1..feature8, brand, main_img, img1..img4, meta_title, meta_explanation
+    # sku, title, price, product_description, feature1..feature8, brand, main_img, img1..img4, meta_title, meta_description
     updated = 0
     created = 0
     errors: list[dict[str, Any]] = []
@@ -223,7 +223,7 @@ async def import_excel(file: UploadFile = File(...), db: Session = Depends(get_d
                     features[f'feature{i}'] = str(val)
             # meta
             meta_title = get_exact('meta_title')
-            meta_explanation = get_exact('meta_explanation')
+            meta_description = get_exact('meta_description')
 
             # Build payload
             payload: dict[str, Any] = {}
@@ -243,12 +243,12 @@ async def import_excel(file: UploadFile = File(...), db: Session = Depends(get_d
             if img3: payload['img3'] = str(img3)
             if img4: payload['img4'] = str(img4)
             payload.update(features)
-            if meta_title or meta_explanation:
+            if meta_title or meta_description:
                 payload['seo'] = {}
                 if meta_title:
                     payload['seo']['meta_title'] = str(meta_title)
-                if meta_explanation:
-                    payload['seo']['meta_explanation'] = str(meta_explanation)
+                if meta_description:
+                    payload['seo']['meta_description'] = str(meta_description)
 
             # Auto-fill title from SKU if missing; require minimum: sku and price
             if not payload.get('sku'):

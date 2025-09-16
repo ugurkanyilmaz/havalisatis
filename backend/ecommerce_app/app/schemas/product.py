@@ -4,7 +4,7 @@ from datetime import datetime
 
 class ProductSEO(BaseModel):
     meta_title: str | None = None
-    meta_explanation: str | None = None
+    meta_description: str | None = None
 
     class Config:
         from_attributes = True
