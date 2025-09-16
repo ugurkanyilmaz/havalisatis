@@ -507,6 +507,7 @@ export default function UrunDetay() {
     const baseTitle = p?.seo?.meta_title || p?.title || p?.sku || '';
     const title = baseTitle ? `${baseTitle} | Havalı Satış` : 'Havalı Satış';
   const description = p?.seo?.meta_description || p?.description || '';
+  const schemaDesc = p?.seo?.schema_description || description;
     const img = getProductImage(p);
     const imgAlt = p?.title || p?.sku || '';
     const url = typeof window !== 'undefined' ? window.location.href : '';
@@ -516,7 +517,7 @@ export default function UrunDetay() {
       "@type": "Product",
       name: baseTitle || p?.title || p?.sku,
       image: img || undefined,
-      description,
+      description: schemaDesc,
       sku: p?.sku,
       brand: brandName ? { "@type": "Brand", name: brandName } : undefined,
       offers: {

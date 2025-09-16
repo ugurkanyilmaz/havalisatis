@@ -65,6 +65,7 @@ class ProductSEO(Base):
     product_sku: Mapped[str] = mapped_column(ForeignKey("products.sku", ondelete="CASCADE"), nullable=False, index=True)
     meta_title: Mapped[str | None] = mapped_column(String, nullable=True)
     meta_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    schema_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now())
 

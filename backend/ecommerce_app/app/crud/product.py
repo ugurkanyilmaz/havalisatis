@@ -94,11 +94,13 @@ def create_product(db: Session, product_in: ProductCreate) -> Product:
     # Upsert SEO after product exists
     meta_title = None
     meta_description = None
+    schema_description = None
     if seo_payload is not None:
         meta_title = seo_payload.get('meta_title')
         meta_description = seo_payload.get('meta_description')
-    if (meta_title is not None) or (meta_description is not None):
-        _upsert_product_seo(db, product, meta_title, meta_description)
+        schema_description = seo_payload.get('schema_description')
+    if (meta_title is not None) or (meta_description is not None) or (schema_description is not None):
+        _upsert_product_seo(db, product, meta_title, meta_description, schema_description)
 
     # Sync images if product_images table exists (from legacy fields)
     _sync_images(db, product, data)
@@ -126,11 +128,13 @@ def update_product(db: Session, product: Product, product_in: ProductUpdate) -> 
     # Upsert SEO: prioritize nested seo payload
     meta_title = None
     meta_description = None
+    schema_description = None
     if seo_payload is not None:
         meta_title = seo_payload.get('meta_title')
         meta_description = seo_payload.get('meta_description')
-    if (meta_title is not None) or (meta_description is not None):
-        _upsert_product_seo(db, product, meta_title, meta_description)
+        schema_description = seo_payload.get('schema_description')
+    if (meta_title is not None) or (meta_description is not None) or (schema_description is not None):
+        _upsert_product_seo(db, product, meta_title, meta_description, schema_description)
 
     # Sync images if table exists
     _sync_images(db, product, data)
@@ -185,7 +189,7 @@ def _has_analytics_table(db: Session) -> bool:
     return _ANALYTICS_TABLE_DETECTED
 
 
-def _upsert_product_seo(db: Session, product: Product, meta_title: str | None, meta_description: str | None) -> None:
+def _upsert_product_seo(db: Session, product: Product, meta_title: str | None, meta_description: str | None, schema_description: str | None) -> None:
     """If product_seo table exists, upsert there; else no-op (legacy fields removed)."""
     if not _has_seo_table(db):
         # Table not yet created; skip silently
@@ -198,12 +202,15 @@ def _upsert_product_seo(db: Session, product: Product, meta_title: str | None, m
             existing_seo.meta_title = meta_title
         if meta_description is not None:
             existing_seo.meta_description = meta_description
+        if schema_description is not None:
+            existing_seo.schema_description = schema_description
         db.add(existing_seo)
     else:
         db.add(ProductSEO(
             product_sku=product.sku,
             meta_title=meta_title,
             meta_description=meta_description,
+            schema_description=schema_description,
         ))
     db.commit()
 
