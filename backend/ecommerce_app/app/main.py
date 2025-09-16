@@ -12,8 +12,7 @@ settings = get_settings()
 
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
 
-# Ensure tables exist (development reset): create tables from models at startup
-Base.metadata.create_all(bind=engine)
+# Tables are managed via Alembic migrations. Avoid create_all to prevent drift.
 
 if settings.DEBUG:
     # In development, allow all to ease testing from phone over LAN
