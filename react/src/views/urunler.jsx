@@ -25,7 +25,11 @@ function ProductCard({ p, onAdd }){
   return (
   <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden flex flex-col group transition-all duration-300 ease-out transform-gpu shadow-sm ring-1 ring-black/0 hover:-translate-y-1 hover:shadow-lg hover:shadow-neutral-300/50 hover:border-neutral-300 hover:ring-black/5 focus-within:ring-black/10">
       <div className="relative aspect-square bg-neutral-50 overflow-hidden flex items-center justify-center p-0 transition-colors duration-300 group-hover:bg-neutral-100">
-        <Link to={`/urunler/${encodeURIComponent(p.sku)}`} className="block w-full h-full">
+        <Link 
+          to={`/urunler/${encodeURIComponent(p.sku)}`} 
+          onClick={() => window.scrollTo(0, 0)}
+          className="block w-full h-full"
+        >
           {img ? (
             <img
               src={img}
@@ -41,10 +45,16 @@ function ProductCard({ p, onAdd }){
       </div>
       <div className="p-4 flex-1 flex flex-col gap-2">
   <div className="text-sm text-neutral-500">{p.sku || 'SKU'}</div>
-  <Link to={`/urunler/${encodeURIComponent(p.sku)}`} className="font-semibold line-clamp-2 min-h-[2.5rem] hover:underline">{p.title || p.sku}</Link>
+  <Link 
+    to={`/urunler/${encodeURIComponent(p.sku)}`} 
+    onClick={() => window.scrollTo(0, 0)}
+    className="font-semibold line-clamp-2 min-h-[2.5rem] hover:underline"
+  >
+    {p.title || p.sku}
+  </Link>
         <div className="mt-1 h-4 flex items-center gap-2 text-[11px] text-neutral-500">
           <StarRating size={12} />
-          <span className="leading-none">5.0</span>
+          <span className="leading-none">5.0 Kalite</span>
         </div>
         <div className="mt-auto flex items-center">
           <div className="text-lg font-bold text-neutral-900">{price.toLocaleString('tr-TR', { style:'currency', currency:'TRY' })}</div>

@@ -3,7 +3,8 @@ import { useParams, Link } from "react-router-dom";
 import { fetchProductBySku, fetchProducts } from "../lib/api.js";
 import { logProductView } from "../lib/api.js";
 import { useCart } from "../context/CartContext.jsx";
-import { Helmet } from "react-helmet-async";
+import StarRating from "../components/common/StarRating.jsx";
+import { setProductHead, clearHead } from "../lib/head_manager.js";
 
 /* -------------------- Helpers -------------------- */
 function getProductImage(p) {
@@ -321,6 +322,7 @@ function RelatedSlider({ items }) {
                 <Link
                   key={r.id}
                   to={`/urunler/${encodeURIComponent(r.sku)}`}
+                  onClick={() => window.scrollTo(0, 0)}
                   className="group flex-none rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition"
                   style={{ width: slideW }}
                 >
@@ -442,7 +444,11 @@ export default function UrunDetay() {
     setError("");
 
     fetchProductBySku(sku, { signal: controller.signal })
-      .then(setP)
+      .then((product) => {
+        console.log("Fetched product:", product);
+        console.log("SEO data:", product?.seo);
+        setP(product);
+      })
       .catch((e) => {
         if (e.name !== "AbortError") {
           setError(e?.message || "Ürün yüklenemedi");
@@ -459,6 +465,14 @@ export default function UrunDetay() {
     // Fire-and-forget; ignore errors
     logProductView(sku).catch(() => {});
   }, [sku]);
+
+  // Apply head/meta using centralized head manager when product is loaded
+  useEffect(() => {
+    if (!p) return;
+    // Env tabanlı varsayılanlar kullanılacak (Vite .env)
+    setProductHead(p);
+    return () => clearHead();
+  }, [p]);
 
   useEffect(() => {
     if (!p?.category_id) {
@@ -501,56 +515,6 @@ export default function UrunDetay() {
       });
   }, [p]);
 
-  // Helmet-managed SEO (title, meta description, OpenGraph/Twitter, JSON-LD)
-  const helmet = useMemo(() => {
-    if (!p) return null;
-    const baseTitle = p?.seo?.meta_title || p?.title || p?.sku || '';
-    const title = baseTitle ? `${baseTitle} | Havalı Satış` : 'Havalı Satış';
-  const description = p?.seo?.meta_description || p?.description || '';
-  const schemaDesc = p?.seo?.schema_description || description;
-    const img = getProductImage(p);
-    const imgAlt = p?.title || p?.sku || '';
-    const url = typeof window !== 'undefined' ? window.location.href : '';
-    const brandName = p?.brand || '';
-    const jsonLd = {
-      "@context": "https://schema.org",
-      "@type": "Product",
-      name: baseTitle || p?.title || p?.sku,
-      image: img || undefined,
-      description: schemaDesc,
-      sku: p?.sku,
-      brand: brandName ? { "@type": "Brand", name: brandName } : undefined,
-      offers: {
-        "@type": "Offer",
-        url,
-        priceCurrency: "TRY",
-        price: String(p?.price ?? ''),
-        availability: "https://schema.org/InStock",
-        itemCondition: "https://schema.org/NewCondition"
-      }
-    };
-    return (
-      <Helmet>
-        <title>{title}</title>
-        {description && <meta name="description" content={description} />}
-        {/* OpenGraph */}
-        <meta property="og:type" content="product" />
-        <meta property="og:title" content={baseTitle} />
-        {description && <meta property="og:description" content={description} />}
-        {img && <meta property="og:image" content={img} />}
-        {imgAlt && <meta property="og:image:alt" content={imgAlt} />}        
-        {url && <meta property="og:url" content={url} />}
-        {/* Twitter */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={baseTitle} />
-        {description && <meta name="twitter:description" content={description} />}
-        {img && <meta name="twitter:image" content={img} />}
-        {imgAlt && <meta name="twitter:image:alt" content={imgAlt} />}
-        {/* JSON-LD Product */}
-        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
-      </Helmet>
-    );
-  }, [p]);
 
   if (loading) return (
     <div className="max-w-7xl mx-auto px-6 py-10">
@@ -569,7 +533,6 @@ export default function UrunDetay() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
-      {helmet}
       <div className="mb-4 text-sm text-neutral-600">
         <Link to="/urunler" className="hover:underline">
           Ürünler
@@ -584,6 +547,10 @@ export default function UrunDetay() {
           <h1 className="text-2xl md:text-3xl font-bold mb-3">
             {p.title || p.sku}
           </h1>
+          <div className="flex items-center gap-3 mb-4">
+            <StarRating size={16} />
+            <span className="text-sm text-neutral-600">5.0 Kalite Puanı</span>
+          </div>
           <ProductPrice price={price} onAdd={handleAdd} />
           {p.description && (
             <div className="mb-6">

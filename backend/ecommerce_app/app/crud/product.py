@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select, or_, and_, inspect
 from ..models.product import Product, ProductSEO, ProductImage, ProductAnalytics
 from ..schemas.product import ProductCreate, ProductUpdate
@@ -72,7 +72,11 @@ def get_product_by_sku(db: Session, sku: str) -> Product | None:
     code = (sku or '').strip().upper()
     if not code:
         return None
-    return db.scalar(select(Product).where(Product.sku == code))
+    return db.scalar(
+        select(Product)
+        .options(selectinload(Product.seo))
+        .where(Product.sku == code)
+    )
 
 
 def create_product(db: Session, product_in: ProductCreate) -> Product:

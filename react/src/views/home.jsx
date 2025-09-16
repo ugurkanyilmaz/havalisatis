@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { fetchPopularProducts } from '../lib/api.js';
 import { fetchDiscountedProducts } from '../lib/api.js';
 import StarRating from '../components/common/StarRating.jsx';
+import { Link } from 'react-router-dom';
 
 export default function Home() {
   const { addItem } = useCart?.() || { addItem: ()=>{} };
@@ -147,9 +148,11 @@ export default function Home() {
               </div>
             ))}
             {!popLoading && popular.map((p, i) => (
-              <div
+              <Link
                 key={p.sku || i}
-                className="group relative rounded-xl border border-neutral-200 bg-white overflow-hidden p-4 flex flex-col gap-3 transition-all duration-300 ease-out transform-gpu shadow-sm ring-1 ring-black/0 hover:-translate-y-1 hover:shadow-lg hover:shadow-neutral-300/50 hover:border-neutral-300 hover:ring-black/5 focus-within:ring-black/10"
+                to={`/urunler/${p.sku}`}
+                onClick={() => window.scrollTo(0, 0)}
+                className="group relative rounded-xl border border-neutral-200 bg-white overflow-hidden p-4 flex flex-col gap-3 transition-all duration-300 ease-out transform-gpu shadow-sm ring-1 ring-black/0 hover:-translate-y-1 hover:shadow-lg hover:shadow-neutral-300/50 hover:border-neutral-300 hover:ring-black/5 focus-within:ring-black/10 cursor-pointer"
               >
                 <div className="relative aspect-square bg-white border border-neutral-200/70 rounded-lg overflow-hidden grid place-items-center p-2 transition-colors duration-300 group-hover:bg-neutral-50">
                   {p.image ? (
@@ -167,19 +170,23 @@ export default function Home() {
                 <div className="text-sm font-semibold line-clamp-2 min-h-[2.25rem]">{p.name || p.sku}</div>
                 <div className="flex items-center gap-2 text-[11px] text-neutral-500">
                   <StarRating size={12} />
-                  <span>5.0</span>
+                  <span>5.0 Kalite</span>
                 </div>
                 <div className="mt-1 text-sm font-bold">{(Number(p.price)||0).toLocaleString('tr-TR', { style:'currency', currency:'TRY' })}</div>
                 <div className="mt-auto pt-2 flex items-center justify-between">
                   <span className="text-[10px] font-semibold tracking-wider text-neutral-400">{p.clicks} tıklanma</span>
                   <button
-                    onClick={()=>addItem({ id:p.sku, name:p.name || p.sku, price: Number(p.price)||0 })}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      addItem({ id:p.sku, name:p.name || p.sku, price: Number(p.price)||0 });
+                    }}
                     className="text-[11px] font-semibold px-3 py-2 rounded-lg bg-brand-orange text-white hover:bg-orange-500 transition inline-flex items-center gap-2 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
                   >
                     Sepete Ekle
                   </button>
                 </div>
-              </div>
+              </Link>
             ))}
             {!popLoading && !popular.length && (
               Array.from({length:8}).map((_,i)=>(
@@ -221,7 +228,12 @@ export default function Home() {
               const disc = Number(p.discount_percent) || 0;
               const final = disc ? Math.round(price * (1 - disc/100) * 100) / 100 : price;
               return (
-                <div key={p.id} className="group relative rounded-xl border border-rose-200/60 bg-white hover:shadow-md transition p-4 flex flex-col gap-3 overflow-hidden">
+                <Link 
+                  key={p.id} 
+                  to={`/urunler/${p.sku}`} 
+                  onClick={() => window.scrollTo(0, 0)}
+                  className="group relative rounded-xl border border-rose-200/60 bg-white hover:shadow-md transition p-4 flex flex-col gap-3 overflow-hidden cursor-pointer"
+                >
                   <div className="absolute -right-10 -top-10 w-28 h-28 rotate-45 bg-gradient-to-br from-rose-400/10 to-transparent pointer-events-none" />
                   <div className="aspect-video rounded-lg bg-rose-50 relative overflow-hidden">
                     {img ? (
@@ -237,7 +249,7 @@ export default function Home() {
                   <div className="text-sm font-semibold line-clamp-2 min-h-[2.25rem]">{p.title || p.sku}</div>
                   <div className="flex items-center gap-2 text-[11px] text-neutral-500">
                     <StarRating size={12} />
-                    <span>5.0</span>
+                    <span>5.0 Kalite</span>
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     {disc > 0 && <div className="text-xs line-through text-neutral-400">{price.toLocaleString('tr-TR', { style:'currency', currency:'TRY' })}</div>}
@@ -245,9 +257,18 @@ export default function Home() {
                   </div>
                   <div className="mt-auto pt-2 flex items-center justify-between">
                     <span className="text-[10px] font-semibold tracking-wider text-rose-500/70">KAMPANYA</span>
-                    <button onClick={()=>addItem({ id:p.id, name:p.title || p.sku, price: final, image: img })} className="text-[11px] font-semibold text-rose-600 hover:underline">Sepete Ekle</button>
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        addItem({ id:p.id, name:p.title || p.sku, price: final, image: img });
+                      }} 
+                      className="text-[11px] font-semibold text-rose-600 hover:underline"
+                    >
+                      Sepete Ekle
+                    </button>
                   </div>
-                </div>
+                </Link>
               );
             })}
             {!discLoading && discounts.length === 0 && (
