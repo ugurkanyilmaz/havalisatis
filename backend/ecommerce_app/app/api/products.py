@@ -19,7 +19,6 @@ def list_all(
     category_id: int | None = None,
     category_path: str | None = None,
     include_descendants: bool = True,
-    discounted_only: bool = False,
     db: Session = Depends(get_db)
 ):
     # If category_path provided, ensure it exists and use its id
@@ -36,7 +35,7 @@ def list_all(
             cat_ids = [category_id]
     if q:
         return search_products(db, q, skip, limit, category, category_id if not cat_ids else None, cat_ids)
-    return list_products(db, skip, limit, category, category_id if not cat_ids else None, cat_ids, discounted_only)
+    return list_products(db, skip, limit, category, category_id if not cat_ids else None, cat_ids)
 
 @router.post('/', response_model=ProductOut)
 def create(product_in: ProductCreate, db: Session = Depends(get_db)):
@@ -182,7 +181,7 @@ async def import_excel(file: UploadFile = File(...), db: Session = Depends(get_d
 
     # Accept the following headers (case-insensitive):
     # parent_category, child_category, subchild_category,
-    # sku, title, price, product_description, feature1..feature8, brand, main_img, img1..img4, meta_title, meta_description, schema_description
+    # sku, title, product_description, feature1..feature8, brand, main_img, img1..img4, meta_title, meta_description, schema_description
     updated = 0
     created = 0
     errors: list[dict[str, Any]] = []
@@ -207,7 +206,6 @@ async def import_excel(file: UploadFile = File(...), db: Session = Depends(get_d
             title_val = get_exact('title')
             # 'product_description' (fallback to 'description' if present)
             description = get_exact('product_description') or get_exact('description')
-            price = get_exact('price')
             brand = get_exact('brand')
             # images (english-only)
             main_img = _norm_url(get_exact('main_img'))
@@ -230,11 +228,6 @@ async def import_excel(file: UploadFile = File(...), db: Session = Depends(get_d
             payload: dict[str, Any] = {}
             if title_val: payload['title'] = str(title_val)
             if description: payload['description'] = str(description)
-            if price not in (None, ''):
-                try:
-                    payload['price'] = float(str(price).replace(',', '.'))
-                except Exception:
-                    pass
             if sku_val: payload['sku'] = str(sku_val)
             if category_path: payload['category_path'] = str(category_path)
             if brand: payload['brand'] = str(brand)
@@ -253,13 +246,11 @@ async def import_excel(file: UploadFile = File(...), db: Session = Depends(get_d
                 if schema_description:
                     payload['seo']['schema_description'] = str(schema_description)
 
-            # Auto-fill title from SKU if missing; require minimum: sku and price
+            # Auto-fill title from SKU if missing; require minimum: sku
             if not payload.get('sku'):
                 raise ValueError('sku eksik')
             if not payload.get('title'):
                 payload['title'] = payload['sku']
-            if 'price' not in payload:
-                raise ValueError('price eksik')
 
             # Upsert by SKU
             from sqlalchemy import select

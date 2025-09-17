@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config import get_settings
 from .database import engine, Base
-from .models import user, appointment, product, token, order, category, analytics  # noqa: F401 ensure models imported
-from .api import auth, products, appointments, admin, categories, analytics
+from .models import product, category, analytics  # noqa: F401 ensure models imported
+from .api import products, categories, analytics
 
 settings = get_settings()
 
@@ -32,10 +32,7 @@ app.add_middleware(
 )
 
 # Routers
-app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
-app.include_router(appointments.router, prefix="/api/appointments", tags=["Appointments"])
-app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(categories.router, prefix="/api/categories", tags=["Categories"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
 

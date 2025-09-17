@@ -8,10 +8,7 @@ class Product(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, index=True, nullable=False)
     description = Column(Text, nullable=True)
-    price = Column(Float, nullable=False)
-    stock = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
-    discount_percent = Column(Float, nullable=True)  # 0-100 arası indirim yüzdesi
     # Extended fields
     category = Column(String, nullable=True, index=True)  # legacy flat category
     category_id = Column(Integer, nullable=True, index=True)  # FK via migration

@@ -31,7 +31,6 @@ class TopProductOut(BaseModel):
     sku: str
     clicks: int
     name: str | None = None
-    price: float | None = None
     image: str | None = None
     views: int | None = None
     sold: int | None = None

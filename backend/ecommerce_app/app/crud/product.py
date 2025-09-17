@@ -12,7 +12,6 @@ def list_products(
     category: str | None = None,
     category_id: int | None = None,
     category_ids: list[int] | None = None,
-    discounted_only: bool = False,
 ):
     stmt = select(Product)
     if category:
@@ -21,12 +20,6 @@ def list_products(
         stmt = stmt.where(Product.category_id.in_(category_ids))
     elif category_id:
         stmt = stmt.where(Product.category_id == category_id)
-    if discounted_only:
-        try:
-            stmt = stmt.where((Product.discount_percent.isnot(None)) & (Product.discount_percent > 0))
-        except Exception:
-            # Fallback for older SQLAlchemy versions
-            stmt = stmt.where((Product.discount_percent != None) & (Product.discount_percent > 0))  # noqa: E711
     stmt = stmt.offset(skip).limit(limit)
     return db.scalars(stmt).all()
 
@@ -81,10 +74,6 @@ def get_product_by_sku(db: Session, sku: str) -> Product | None:
 
 def create_product(db: Session, product_in: ProductCreate) -> Product:
     data = product_in.model_dump()
-    # Safety check for discount range (validator already ensures, but double guard)
-    dp = data.get('discount_percent')
-    if dp is not None and (dp < 0 or dp > 100):
-        raise ValueError('discount_percent must be between 0 and 100')
     cat_path = data.pop('category_path', None)
     # Extract SEO
     seo_payload = data.pop('seo', None)
@@ -116,9 +105,6 @@ def create_product(db: Session, product_in: ProductCreate) -> Product:
 
 def update_product(db: Session, product: Product, product_in: ProductUpdate) -> Product:
     data = product_in.model_dump(exclude_unset=True)
-    dp = data.get('discount_percent')
-    if dp is not None and (dp < 0 or dp > 100):
-        raise ValueError('discount_percent must be between 0 and 100')
     cat_path = data.pop('category_path', None)
     seo_payload = data.pop('seo', None)
     if cat_path:

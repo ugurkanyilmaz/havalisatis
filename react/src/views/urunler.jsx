@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import { fetchProducts, fetchCategories } from '../lib/api.js';
 import StarRating from '../components/common/StarRating.jsx';
-import { useCart } from '../context/CartContext.jsx';
 
 function SearchBar({ value, onChange, onSubmit }){
   return (
@@ -20,7 +19,6 @@ function SearchBar({ value, onChange, onSubmit }){
 }
 
 function ProductCard({ p, onAdd }){
-  const price = Number(p.price) || 0;
   const img = p.main_img || p.img1 || p.img2 || p.img3 || p.img4 || null;
   return (
   <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden flex flex-col group transition-all duration-300 ease-out transform-gpu shadow-sm ring-1 ring-black/0 hover:-translate-y-1 hover:shadow-lg hover:shadow-neutral-300/50 hover:border-neutral-300 hover:ring-black/5 focus-within:ring-black/10">
@@ -56,12 +54,15 @@ function ProductCard({ p, onAdd }){
           <StarRating size={12} />
           <span className="leading-none">5.0 Kalite</span>
         </div>
-        <div className="mt-auto flex items-center">
-          <div className="text-lg font-bold text-neutral-900">{price.toLocaleString('tr-TR', { style:'currency', currency:'TRY' })}</div>
-          <button onClick={()=>onAdd?.(p)} className="ml-auto text-[10px] font-medium px-2 py-1 rounded-md bg-brand-orange text-white hover:bg-orange-500 transition inline-flex items-center gap-1 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300">
-            <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M6 6h15l-1.5 9h-12z"/><path d="M6 6 5 3H2"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>
-            Sepete Ekle
-          </button>
+        <div className="mt-auto flex items-center justify-end">
+          <Link 
+            to={`/urunler/${encodeURIComponent(p.sku)}`} 
+            onClick={() => window.scrollTo(0, 0)}
+            className="text-[10px] font-medium px-2 py-1 rounded-md bg-neutral-500 text-white hover:bg-neutral-600 transition inline-flex items-center gap-1 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300"
+          >
+            <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            İncele
+          </Link>
         </div>
       </div>
     </div>
@@ -69,7 +70,6 @@ function ProductCard({ p, onAdd }){
 }
 
 export default function Products(){
-  const { addItem } = useCart();
   const [searchParams, setSearchParams] = useSearchParams();
   const [q, setQ] = useState('');
   const [skip, setSkip] = useState(0);
@@ -185,7 +185,8 @@ export default function Products(){
   };
 
   const handleAdd = (p) => {
-    addItem({ id: p.id, name: p.title || p.sku, price: p.price, image: p.main_img });
+    // Redirect to contact page for quote
+    window.location.href = '/iletisim';
   };
 
   return (

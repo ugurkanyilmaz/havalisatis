@@ -1,6 +1,4 @@
 import { Outlet, NavLink } from 'react-router-dom';
-import { useCart } from '../context/CartContext.jsx';
-import { useAuth } from '../context/AuthContext.jsx';
 import logo from '../components/ketenlogoson.fw_.png';
 import { SOCIAL_LINKS } from '../lib/socialLinks.js';
 
@@ -8,14 +6,9 @@ const nav = [
   { to:'/', label:'Ana Sayfa' },
   { to:'/urunler', label:'Ürünler' },
   { to:'/iletisim', label:'İletişim' },
-  { to:'/teknik-servis', label:'Teknik Servis' },
-  // Admin linki kaldırıldı
 ];
 
 export default function Layout(){
-  const { count } = useCart?.() || { count: 0 };
-  const { user, isAuthenticated, logout } = useAuth();
-  const displayName = user?.full_name || user?.email;
   return (
   <div className="min-h-[100svh] min-h-[100dvh] flex flex-col">
       <header className="sticky top-0 z-40 backdrop-blur bg-white/60 border-b border-neutral-200/70">
@@ -60,25 +53,9 @@ export default function Layout(){
               </a>
             </div>
             <div className="flex items-center gap-3">
-              <NavLink to="/sepet" className="relative inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-lg border border-neutral-300 hover:border-neutral-400 hover:bg-neutral-100 transition">
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M6 6h15l-1.5 9h-12z"/><path d="M6 6 5 3H2"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>
-                Sepet
-                <span className="ml-1 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-brand-orange text-white text-[10px]">{count}</span>
+              <NavLink to="/iletisim" className="text-xs font-semibold px-4 py-2 rounded-lg bg-brand-orange text-white shadow hover:bg-orange-500 transition">
+                Teklif Al
               </NavLink>
-              {!isAuthenticated && <NavLink to="/login" className="text-xs font-semibold px-4 py-2 rounded-lg border border-neutral-300 hover:border-neutral-400 hover:bg-neutral-100 transition">Giriş</NavLink>}
-              {!isAuthenticated && <NavLink to="/register" className="text-xs font-semibold px-4 py-2 rounded-lg bg-brand-orange text-white shadow hover:bg-orange-500 transition">Kayıt</NavLink>}
-              {isAuthenticated && (
-                <div className="relative group">
-                  <button className="text-xs font-semibold px-4 py-2 rounded-lg border border-neutral-300 bg-white hover:border-neutral-400 hover:bg-neutral-100 transition inline-flex items-center gap-2">
-                    <span className="inline-block max-w-[140px] truncate text-left">{displayName}</span>
-                    <svg className="h-3 w-3 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
-                  </button>
-                  <div className="absolute right-0 mt-1 w-44 rounded-lg border border-neutral-200 bg-white shadow-lg py-1 text-xs font-medium hidden group-hover:block z-50">
-                    <span className="block px-3 py-2 text-neutral-500 truncate border-b border-neutral-100">{displayName}</span>
-                    <button onClick={logout} className="w-full text-left px-3 py-2 hover:bg-neutral-100">Çıkış Yap</button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>

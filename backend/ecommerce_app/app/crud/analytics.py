@@ -74,7 +74,6 @@ def get_top_products(db: Session, limit: int = 10, metric: str = 'clicks'):
         select(
             Product.sku,
             Product.title,
-            Product.price,
             Product.main_img,
             ProductAnalytics.clicks_count,
             ProductAnalytics.page_views_count,
@@ -89,11 +88,10 @@ def get_top_products(db: Session, limit: int = 10, metric: str = 'clicks'):
         {
             'sku': r[0],
             'name': r[1],
-            'price': r[2],
-            'image': r[3],
-            'clicks': r[4] or 0,
-            'views': r[5] or 0,
-            'sold': r[6] or 0,
+            'image': r[2],
+            'clicks': r[3] or 0,
+            'views': r[4] or 0,
+            'sold': r[5] or 0,
         }
         for r in rows
     ]

@@ -7,18 +7,10 @@ By importing the submodules, their SQLAlchemy models register with Base.metadata
 # Import modules to register models with SQLAlchemy metadata
 from . import product  # noqa: F401
 from . import category  # noqa: F401
-from . import order  # noqa: F401
-from . import user  # noqa: F401
-from . import token  # noqa: F401
 from . import analytics  # noqa: F401
-from . import appointment  # noqa: F401
 
 __all__ = [
     "product",
     "category",
-    "order",
-    "user",
-    "token",
     "analytics",
-    "appointment",
 ]

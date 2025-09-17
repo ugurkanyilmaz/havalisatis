@@ -96,13 +96,8 @@ function composeTitle(base, siteName, maxTotal = 60) {
 }
 
 function formatPrice(price, currency = 'TRY', locale = 'tr-TR') {
-  try {
-    const n = Number(price);
-    if (!isFinite(n)) return undefined;
-    return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
-  } catch {
-    return undefined;
-  }
+  // Removed: No longer displaying prices
+  return undefined;
 }
 
 function availabilityText(avail) {
@@ -156,7 +151,7 @@ export function buildProductHead(product, options = {}) {
     ? 'https://schema.org/OutOfStock'
     : 'https://schema.org/InStock';
   const availabilityHuman = availabilityText(availability);
-  const formattedPrice = formatPrice(p?.price, currency, locale.replace('_','-'));
+  const formattedPrice = undefined; // No price display
   const features = parseFeatures(p);
   const featureKeywords = features.slice(0, 3).map((f) => collapseWhitespace(f.name)).filter(Boolean).join(', ');
   const mergedKeywords = collapseWhitespace([keywords, featureKeywords].filter(Boolean).join(', '));
@@ -177,7 +172,7 @@ export function buildProductHead(product, options = {}) {
       '@type': 'Offer',
       url: canonical || url || undefined,
       priceCurrency: currency,
-      price: p?.price != null ? String(p.price) : undefined,
+      price: undefined, // No price shown - contact for quote
       availability,
       itemCondition: 'https://schema.org/NewCondition',
     },
@@ -219,7 +214,6 @@ export function buildProductHead(product, options = {}) {
       p?.brand ? { property: 'product:brand', content: p.brand } : null,
       p?.category ? { property: 'product:category', content: p.category } : null,
       p?.sku ? { property: 'product:retailer_part_no', content: p.sku } : null,
-      p?.price != null ? { property: 'product:price:amount', content: String(p.price) } : null,
       { property: 'product:price:currency', content: currency },
       { property: 'product:availability', content: availability },
       { property: 'product:condition', content: 'new' },
@@ -231,15 +225,15 @@ export function buildProductHead(product, options = {}) {
       { name: 'twitter:description', content: metaDescription || `${siteName} - Profesyonel aletler ve endüstriyel çözümler` },
       primaryImage ? { name: 'twitter:image', content: primaryImage } : null,
       primaryImage ? { name: 'twitter:image:alt', content: imgAlt } : null,
-      // Twitter data badges
-      formattedPrice ? { name: 'twitter:label1', content: 'Fiyat' } : null,
-      formattedPrice ? { name: 'twitter:data1', content: formattedPrice } : null,
-      availabilityHuman ? { name: 'twitter:label2', content: 'Durum' } : null,
-      availabilityHuman ? { name: 'twitter:data2', content: availabilityHuman } : null,
-      features[0]?.name ? { name: 'twitter:label3', content: features[0].name } : null,
-      features[0]?.value ? { name: 'twitter:data3', content: features[0].value } : null,
-      features[1]?.name ? { name: 'twitter:label4', content: features[1].name } : null,
-      features[1]?.value ? { name: 'twitter:data4', content: features[1].value } : null,
+      // Twitter data badges - no price, show availability and features
+      availabilityHuman ? { name: 'twitter:label1', content: 'Durum' } : null,
+      availabilityHuman ? { name: 'twitter:data1', content: availabilityHuman } : null,
+      features[0]?.name ? { name: 'twitter:label2', content: features[0].name } : null,
+      features[0]?.value ? { name: 'twitter:data2', content: features[0].value } : null,
+      features[1]?.name ? { name: 'twitter:label3', content: features[1].name } : null,
+      features[1]?.value ? { name: 'twitter:data3', content: features[1].value } : null,
+      features[2]?.name ? { name: 'twitter:label4', content: features[2].name } : null,
+      features[2]?.value ? { name: 'twitter:data4', content: features[2].value } : null,
     ].filter(Boolean),
     link: [
       canonical ? { rel: 'canonical', href: canonical } : null,

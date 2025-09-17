@@ -2,7 +2,6 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { fetchProductBySku, fetchProducts } from "../lib/api.js";
 import { logProductView } from "../lib/api.js";
-import { useCart } from "../context/CartContext.jsx";
 import StarRating from "../components/common/StarRating.jsx";
 import { setProductHead, clearHead } from "../lib/head_manager.js";
 
@@ -224,26 +223,23 @@ function ProductGallery({ product }) {
   );
 }
 
-function ProductPrice({ price, onAdd }) {
-  const formatted = price.toLocaleString("tr-TR", { style: "currency", currency: "TRY" });
+function ProductPrice({ onRequestQuote }) {
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white p-4 md:p-5 shadow-sm mb-5">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-neutral-900">{formatted}</div>
-          <div className="text-xs text-neutral-500 mt-1">KDV Dahil</div>
+          <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-neutral-900">Fiyat İçin Teklif Alın</div>
+          <div className="text-xs text-neutral-500 mt-1">En Uygun Fiyatı Size Özel Hazırlıyoruz</div>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
           <button
-            onClick={onAdd}
-            className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-brand-orange text-white hover:bg-orange-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-300 active:scale-[0.99] transition"
+            onClick={onRequestQuote}
+            className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-neutral-500 text-white hover:bg-neutral-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 active:scale-[0.99] transition"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <circle cx="9" cy="21" r="1.5" />
-              <circle cx="19" cy="21" r="1.5" />
-              <path d="M2 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.7a2 2 0 0 0 2-1.6L22 7H6" />
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
             </svg>
-            <span className="font-semibold">Sepete Ekle</span>
+            <span className="font-semibold">Teklif Al</span>
           </button>
         </div>
       </div>
@@ -317,7 +313,6 @@ function RelatedSlider({ items }) {
           >
             {items.map((r) => {
               const rimg = getProductImage(r);
-              const rprice = Number(r.price) || 0;
               return (
                 <Link
                   key={r.id}
@@ -336,7 +331,7 @@ function RelatedSlider({ items }) {
                   <div className="p-3">
                     <div className="text-xs text-neutral-500 mb-1">{r.sku}</div>
                     <div className="text-sm font-semibold line-clamp-2 min-h-[2.25rem] group-hover:underline">{r.title || r.sku}</div>
-                    <div className="mt-2 text-sm font-bold">{rprice.toLocaleString("tr-TR", { style: "currency", currency: "TRY" })}</div>
+                    <div className="mt-2 text-sm font-bold text-brand-orange">Teklif Al</div>
                   </div>
                 </Link>
               );
@@ -431,7 +426,6 @@ function RelatedSliderSkeleton(){
 /* -------------------- Main Page -------------------- */
 export default function UrunDetay() {
   const { sku } = useParams();
-  const { addItem } = useCart();
   const [p, setP] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -526,9 +520,10 @@ export default function UrunDetay() {
   if (error) return <div className="p-10 text-red-600">{error}</div>;
   if (!p) return <div className="p-10">Ürün bulunamadı</div>;
 
-  const price = Number(p.price) || 0;
-  const handleAdd = () =>
-    addItem({ id: p.id, name: p.title || p.sku, price: p.price, image: p.main_img });
+  const handleRequestQuote = () => {
+    // Teklif talebi için iletişim sayfasına yönlendir veya modal aç
+    window.location.href = `/iletisim?sku=${encodeURIComponent(p.sku)}&product=${encodeURIComponent(p.title || p.sku)}`;
+  };
 
 
   return (
@@ -551,7 +546,7 @@ export default function UrunDetay() {
             <StarRating size={16} />
             <span className="text-sm text-neutral-600">5.0 Kalite Puanı</span>
           </div>
-          <ProductPrice price={price} onAdd={handleAdd} />
+          <ProductPrice onRequestQuote={handleRequestQuote} />
           {p.description && (
             <div className="mb-6">
               <DescriptionFormatted text={p.description} />

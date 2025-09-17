@@ -13,9 +13,6 @@ class ProductSEO(BaseModel):
 class ProductBase(BaseModel):
     title: str
     description: str | None = None
-    price: float
-    stock: int = 0
-    discount_percent: float | None = None
     category: str | None = None
     category_id: int | None = None
     category_path: str | None = None  # convenience input like "Parent > Child > Sub"
@@ -38,14 +35,6 @@ class ProductBase(BaseModel):
     # SEO (nested)
     seo: ProductSEO | None = None
 
-    @field_validator('discount_percent')
-    @classmethod
-    def validate_discount(cls, v):
-        if v is not None:
-            if v < 0 or v > 100:
-                raise ValueError('discount_percent 0 ile 100 arasında olmalı')
-        return v
-
     @field_validator('sku')
     @classmethod
     def normalize_code(cls, v):
@@ -62,10 +51,7 @@ class ProductCreate(ProductBase):
 class ProductUpdate(BaseModel):
     title: str | None = None
     description: str | None = None
-    price: float | None = None
-    stock: int | None = None
     is_active: bool | None = None
-    discount_percent: float | None = None
     category: str | None = None
     category_id: int | None = None
     category_path: str | None = None
@@ -93,12 +79,6 @@ class ProductOut(ProductBase):
     is_active: bool
     created_at: datetime | None = None
     updated_at: datetime | None = None
-
-    @property
-    def discounted_price(self) -> float:
-        if self.discount_percent:
-            return round(self.price * (1 - self.discount_percent / 100), 2)
-        return self.price
 
     class Config:
         from_attributes = True

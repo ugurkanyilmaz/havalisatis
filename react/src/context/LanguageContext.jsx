@@ -4,12 +4,12 @@ const LanguageContext = createContext(null);
 const LANG_KEY = 'pref:lang';
 const MESSAGES = {
   tr: {
-    home: 'Ana Sayfa', products: 'Ürünler', contact: 'İletişim', service: 'Teknik Servis',
-    cart: 'Sepet', login: 'Giriş', register: 'Kayıt', logout: 'Çıkış Yap', theme: 'Tema', language: 'Dil', dark: 'Karanlık', light: 'Aydınlık'
+    home: 'Ana Sayfa', products: 'Ürünler', contact: 'İletişim',
+    theme: 'Tema', language: 'Dil', dark: 'Karanlık', light: 'Aydınlık'
   },
   en: {
-    home: 'Home', products: 'Products', contact: 'Contact', service: 'Service',
-    cart: 'Cart', login: 'Login', register: 'Register', logout: 'Logout', theme: 'Theme', language: 'Language', dark: 'Dark', light: 'Light'
+    home: 'Home', products: 'Products', contact: 'Contact',
+    theme: 'Theme', language: 'Language', dark: 'Dark', light: 'Light'
   }
 };
 
