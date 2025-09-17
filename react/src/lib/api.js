@@ -36,7 +36,8 @@ export const fetchCategories = (parent_id = null) => {
 
 // Analytics
 export const logProductView = (sku) => request('/analytics/product-view', { method: 'POST', body: { sku } });
-export const fetchPopularProducts = (limit = 8, metric = 'clicks') => {
+export const logProductClick = (sku) => request('/analytics/product-click', { method: 'POST', body: { sku } });
+export const fetchPopularProducts = (limit = 8, metric = 'views') => {
   const params = new URLSearchParams();
   if (limit) params.set('limit', limit);
   if (metric) params.set('metric', metric);

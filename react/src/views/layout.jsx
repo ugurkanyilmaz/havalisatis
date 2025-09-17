@@ -11,13 +11,24 @@ const nav = [
 export default function Layout(){
   return (
   <div className="min-h-[100svh] min-h-[100dvh] flex flex-col">
-      <header className="sticky top-0 z-40 backdrop-blur bg-white/60 border-b border-neutral-200/70">
+  <header className="sticky top-0 z-40 bg-neutral-300 border-b border-neutral-400/70">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-8">
           <div className="flex items-center gap-8">
             <NavLink to="/" className="flex items-center" aria-label="Keten Ana Sayfa">
               <img src={logo} alt="Keten Logo" className="h-10 md:h-12 lg:h-14 w-auto select-none transition-all" draggable={false} />
               <span className="sr-only">KETEN</span>
             </NavLink>
+            {/* Mobile inline nav (only icons/text links) */}
+            <nav className="flex md:hidden items-center gap-4 text-[11px] font-semibold">
+              <NavLink
+                to="/urunler"
+                className={({ isActive }) => `px-2 py-1 rounded-md transition ${isActive ? 'bg-orange-100 text-brand-orange' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'}`}
+              >Ürünler</NavLink>
+              <NavLink
+                to="/iletisim"
+                className={({ isActive }) => `px-2 py-1 rounded-md transition ${isActive ? 'bg-orange-100 text-brand-orange' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'}`}
+              >İletişim</NavLink>
+            </nav>
              <nav className="hidden md:flex items-center gap-6 text-[13px] font-medium">
               {nav.map(item => (
                 <NavLink
@@ -38,17 +49,17 @@ export default function Layout(){
             </nav>
           </div>
           <div className="flex items-center gap-5">
-            <div className="hidden lg:flex items-center gap-3 pr-2 border-r border-neutral-300/60">
-              <a href={SOCIAL_LINKS.whatsapp} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="group p-1.5 rounded-md hover:bg-emerald-500/15 transition text-neutral-300 hover:text-emerald-400">
+            <div className="hidden lg:flex items-center gap-2 pr-3 border-r border-neutral-400/60">
+              <a href={SOCIAL_LINKS.whatsapp} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="p-1.5 rounded-md bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/25 transition">
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor"><path d="M12.04 2c-5.52 0-10 4.42-10 9.87 0 1.74.47 3.43 1.37 4.92L2 22l5.4-1.76c1.43.78 3.05 1.19 4.67 1.19h.01c5.52 0 10-4.42 10-9.87 0-2.64-1.07-5.12-3.02-6.99A10.55 10.55 0 0 0 12.04 2Zm5.88 14.19c-.25.7-1.46 1.33-2.02 1.39-.52.05-1.18.07-1.9-.12-.44-.11-1-.32-1.72-.63-3.03-1.31-5-4.37-5.15-4.58-.15-.21-1.23-1.64-1.23-3.13 0-1.48.78-2.2 1.06-2.5.28-.3.61-.37.82-.37.2 0 .4.01.57.01.18.01.42-.07.66.5.25.6.85 2.07.92 2.22.07.15.12.32.02.52-.1.21-.15.33-.3.51-.15.17-.31.39-.44.52-.15.15-.31.32-.13.63.18.3.8 1.32 1.72 2.14 1.18 1.05 2.17 1.38 2.48 1.54.31.15.49.13.67-.08.18-.21.77-.88.97-1.18.2-.3.41-.24.68-.14.28.1 1.76.83 2.06.98.3.15.5.23.57.36.07.12.07.72-.18 1.42Z"/></svg>
               </a>
-              <a href={SOCIAL_LINKS.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="group p-1.5 rounded-md hover:bg-pink-500/15 transition text-neutral-300 hover:text-pink-400">
+              <a href={SOCIAL_LINKS.instagram} target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="p-1.5 rounded-md bg-pink-500/15 text-pink-500 hover:bg-pink-500/25 transition">
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor"><path d="M7.75 2h8.5A5.75 5.75 0 0 1 22 7.75v8.5A5.75 5.75 0 0 1 16.25 22h-8.5A5.75 5.75 0 0 1 2 16.25v-8.5A5.75 5.75 0 0 1 7.75 2Zm0 1.5A4.25 4.25 0 0 0 3.5 7.75v8.5A4.25 4.25 0 0 0 7.75 20.5h8.5A4.25 4.25 0 0 0 20.5 16.25v-8.5A4.25 4.25 0 0 0 16.25 3.5h-8.5ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 1.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm5.25-.88a.88.88 0 1 1 0 1.76.88.88 0 0 1 0-1.76Z"/></svg>
               </a>
-              <a href={SOCIAL_LINKS.youtube} target="_blank" rel="noopener noreferrer" aria-label="YouTube" className="group p-1.5 rounded-md hover:bg-red-500/15 transition text-neutral-300 hover:text-red-400">
+              <a href={SOCIAL_LINKS.youtube} target="_blank" rel="noopener noreferrer" aria-label="YouTube" className="p-1.5 rounded-md bg-red-500/15 text-red-500 hover:bg-red-500/25 transition">
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor"><path d="M21.58 7.19c-.23-.86-.91-1.54-1.77-1.77C18.25 5 12 5 12 5s-6.25 0-7.81.42c-.86.23-1.54.91-1.77 1.77C2 8.75 2 12 2 12s0 3.25.42 4.81c.23.86.91 1.54 1.77 1.77C5.75 19 12 19 12 19s6.25 0 7.81-.42c.86-.23 1.54-.91 1.77-1.77C22 15.25 22 12 22 12s0-3.25-.42-4.81ZM10.5 15.02V8.98L15.5 12l-5 3.02Z"/></svg>
               </a>
-              <a href={SOCIAL_LINKS.facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="group p-1.5 rounded-md hover:bg-blue-600/15 transition text-neutral-300 hover:text-blue-400">
+              <a href={SOCIAL_LINKS.facebook} target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="p-1.5 rounded-md bg-blue-600/15 text-blue-600 hover:bg-blue-600/25 transition">
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor"><path d="M13.5 9H16l.5-3h-3V4.5c0-.966.196-1.5 1.5-1.5H16V0h-2.4C10.9 0 9.5 1.343 9.5 3.8V6H7v3h2.5v12h4V9Z"/></svg>
               </a>
             </div>

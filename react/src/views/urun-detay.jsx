@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { fetchProductBySku, fetchProducts } from "../lib/api.js";
-import { logProductView } from "../lib/api.js";
+import { logProductView, logProductClick } from "../lib/api.js";
 import StarRating from "../components/common/StarRating.jsx";
 import { setProductHead, clearHead } from "../lib/head_manager.js";
 
@@ -85,11 +85,122 @@ function ProductGallery({ product }) {
     return uniq;
   }, [product]);
   const [idx, setIdx] = useState(0);
+  const [lightbox, setLightbox] = useState(false); // fullscreen viewer
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const panStart = useRef({ x: 0, y: 0 });
+  const offsetStart = useRef({ x: 0, y: 0 });
+  const lastTouchDist = useRef(null);
+  const touchMode = useRef(false);
+  const swipeStart = useRef(null);
   useEffect(() => { setIdx(0); }, [product?.sku]);
   const current = images[idx] || null;
   const next = (dir) => {
     if (!images.length) return;
     setIdx((i) => (i + dir + images.length) % images.length);
+  };
+  // Reset zoom when index changes or lightbox closes
+  useEffect(() => { setZoom(1); setOffset({x:0,y:0}); }, [idx, lightbox]);
+
+  // ESC close & body scroll lock
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setLightbox(false);
+      if (e.key === 'ArrowRight') next(1);
+      if (e.key === 'ArrowLeft') next(-1);
+    };
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prevOverflow; };
+  }, [lightbox]);
+
+  const clampOffset = (x, y, z) => {
+    // limit pan so image doesn't leave container too far; allow some slack
+    const slack = 40;
+    const max = (val) => Math.max(-((z-1)*500) - slack, Math.min(((z-1)*500)+slack, val));
+    return { x: max(x), y: max(y) };
+  };
+
+  const onWheel = (e) => {
+    if (!lightbox) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom((z) => {
+      const nz = Math.min(4, Math.max(1, +(z + delta).toFixed(2)));
+      if (nz === 1) setOffset({x:0,y:0});
+      return nz;
+    });
+  };
+
+  const onMouseDown = (e) => {
+    if (zoom === 1) return;
+    setIsPanning(true);
+    panStart.current = { x: e.clientX, y: e.clientY };
+    offsetStart.current = { ...offset };
+  };
+  const onMouseMovePan = (e) => {
+    if (!isPanning) return;
+    const dx = e.clientX - panStart.current.x;
+    const dy = e.clientY - panStart.current.y;
+    setOffset(clampOffset(offsetStart.current.x + dx, offsetStart.current.y + dy, zoom));
+  };
+  const endPan = () => setIsPanning(false);
+
+  // Touch gestures (pinch + swipe)
+  const onTouchStart = (e) => {
+    if (!lightbox) return;
+    if (e.touches.length === 1) {
+      swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: Date.now() };
+      if (zoom > 1) {
+        touchMode.current = true;
+        panStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        offsetStart.current = { ...offset };
+      }
+    } else if (e.touches.length === 2) {
+      lastTouchDist.current = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    }
+  };
+  const onTouchMove = (e) => {
+    if (!lightbox) return;
+    if (e.touches.length === 2 && lastTouchDist.current) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const delta = dist - lastTouchDist.current;
+      lastTouchDist.current = dist;
+      setZoom((z) => {
+        const nz = Math.min(4, Math.max(1, +(z + delta / 300).toFixed(2)));
+        if (nz === 1) setOffset({x:0,y:0});
+        return nz;
+      });
+    } else if (e.touches.length === 1 && touchMode.current && zoom > 1) {
+      const dx = e.touches[0].clientX - panStart.current.x;
+      const dy = e.touches[0].clientY - panStart.current.y;
+      setOffset(clampOffset(offsetStart.current.x + dx, offsetStart.current.y + dy, zoom));
+    }
+  };
+  const onTouchEnd = (e) => {
+    if (!lightbox) return;
+    if (e.touches.length === 0) {
+      // Swipe detection
+      if (swipeStart.current && zoom === 1) {
+        const dx = (e.changedTouches[0].clientX - swipeStart.current.x);
+        const dt = Date.now() - swipeStart.current.time;
+        if (dt < 500 && Math.abs(dx) > 60) {
+          if (dx < 0) next(1); else next(-1);
+        }
+      }
+      touchMode.current = false;
+      lastTouchDist.current = null;
+      swipeStart.current = null;
+    }
   };
   // Zoom state
   const containerRef = useRef(null);
@@ -103,6 +214,11 @@ function ProductGallery({ product }) {
   const ZOOM = 2.0; // zoom factor for side panel
   const LENS = 110; // lens diameter in px
   const PANEL_W = 384; // px (tailwind w-96)
+  // Detect touch device (disable hover zoom)
+  const isTouch = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return 'ontouchstart' in window || (navigator?.maxTouchPoints || 0) > 0;
+  }, []);
 
   const onMove = (e) => {
     if (!containerRef.current || !imgRef.current) return;
@@ -143,24 +259,18 @@ function ProductGallery({ product }) {
           </aside>
         )}
         <div className="relative flex-1">
-          <div
-            ref={containerRef}
-            className="relative w-full h-full bg-neutral-50 flex items-center justify-center p-0"
-            onMouseMove={onMove}
-            onMouseEnter={onEnter}
-            onMouseLeave={onLeave}
-          >
+          {/* Mobile container (aspect enforced) */}
+          <div className="block md:hidden w-full aspect-square bg-neutral-50 rounded-xl overflow-hidden flex items-center justify-center">
             {current ? (
-              <img ref={imgRef} src={current} alt={product?.title || product?.sku} className="absolute inset-0 w-full h-full object-cover select-none" draggable={false} />
+              <img
+                src={current}
+                alt={product?.title || product?.sku}
+                className="w-full h-full object-contain select-none cursor-zoom-in"
+                onClick={() => setLightbox(true)}
+                draggable={false}
+              />
             ) : (
               <div className="w-full h-full grid place-items-center text-neutral-400 text-xs">Görsel yok</div>
-            )}
-            {/* Lens */}
-            {hover && current && (
-              <div
-                className="pointer-events-none absolute rounded-full border border-orange-300 bg-orange-200/25 shadow-sm"
-                style={{ width: LENS, height: LENS, left: lensPos.x, top: lensPos.y }}
-              />
             )}
             {images.length > 1 && (
               <>
@@ -183,8 +293,52 @@ function ProductGallery({ product }) {
               </>
             )}
           </div>
-          {/* External zoom panel on desktop, positioned relative to main image container */}
-          {hover && current && imgBox.w > 0 && (
+          {/* Desktop container (restore original absolute cover style + zoom) */}
+          <div
+            ref={containerRef}
+            className="hidden md:flex relative w-full h-full min-h-[420px] bg-neutral-50 rounded-xl overflow-hidden items-center justify-center"
+            {...(!isTouch ? { onMouseMove: onMove, onMouseEnter: onEnter, onMouseLeave: onLeave } : {})}
+          >
+            {current ? (
+              <img
+                ref={imgRef}
+                src={current}
+                alt={product?.title || product?.sku}
+                className="absolute inset-0 w-full h-full object-cover select-none cursor-zoom-in"
+                onClick={() => setLightbox(true)}
+                draggable={false}
+              />
+            ) : (
+              <div className="w-full h-full grid place-items-center text-neutral-400 text-xs">Görsel yok</div>
+            )}
+            {!isTouch && hover && current && (
+              <div
+                className="pointer-events-none absolute rounded-full border border-orange-300 bg-orange-200/25 shadow-sm"
+                style={{ width: LENS, height: LENS, left: lensPos.x, top: lensPos.y }}
+              />
+            )}
+            {images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => next(-1)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white border border-neutral-200 shadow-sm rounded-full w-9 h-9 grid place-items-center"
+                  aria-label="Önceki görsel"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  onClick={() => next(1)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white border border-neutral-200 shadow-sm rounded-full w-9 h-9 grid place-items-center"
+                  aria-label="Sonraki görsel"
+                >
+                  ›
+                </button>
+              </>
+            )}
+          </div>
+          {!isTouch && hover && current && imgBox.w > 0 && (
             <div
               className="hidden md:block absolute top-0"
               style={{ left: `calc(100% + 12px)`, width: PANEL_W, height: contH }}
@@ -202,14 +356,14 @@ function ProductGallery({ product }) {
           )}
         </div>
       </div>
-      {/* Mobile horizontal thumbnails fallback */}
+      {/* Mobile horizontal thumbnails */}
       {images.length > 1 && (
-        <div className="md:hidden p-2 flex gap-2 overflow-x-auto">
+        <div className="md:hidden px-2 pb-2 flex gap-2 overflow-x-auto">
           {images.map((u, i) => (
             <button
               key={i}
               onClick={() => setIdx(i)}
-              className={`relative w-16 h-16 rounded-lg overflow-hidden border ${i===idx ? 'border-brand-orange' : 'border-neutral-200'}`}
+              className={`relative flex-none w-16 h-16 rounded-lg overflow-hidden border ${i===idx ? 'border-brand-orange' : 'border-neutral-200'}`}
               aria-label={`Görsel ${i+1}`}
             >
               <div className="w-full h-full bg-neutral-100 grid place-items-center p-1">
@@ -219,28 +373,146 @@ function ProductGallery({ product }) {
           ))}
         </div>
       )}
+      {/* Lightbox fullscreen viewer */}
+      {lightbox && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex flex-col"
+          onClick={(e) => { if (e.target === e.currentTarget) setLightbox(false); }}
+        >
+          <div className="flex items-center justify-between px-4 py-3 text-white text-sm">
+            <div className="font-medium truncate max-w-[60%]">{product?.title || product?.sku}</div>
+            <div className="flex items-center gap-2">
+              {images.length > 1 && (
+                <span className="text-xs opacity-70">{idx + 1} / {images.length}</span>
+              )}
+              <button
+                onClick={() => setLightbox(false)}
+                aria-label="Kapat"
+                className="p-2 rounded-md bg-white/10 hover:bg-white/20 active:bg-white/30 transition"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 flex items-center justify-center px-4 pb-8 select-none">
+            {current ? (
+              <div
+                className="relative max-h-[75vh] max-w-[90vw] flex items-center justify-center"
+                onWheel={onWheel}
+                onMouseDown={onMouseDown}
+                onMouseMove={onMouseMovePan}
+                onMouseUp={endPan}
+                onMouseLeave={endPan}
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
+              >
+                <img
+                  src={current}
+                  alt={product?.title || product?.sku}
+                  className="select-none pointer-events-none"
+                  style={{
+                    maxHeight: '75vh',
+                    maxWidth: '90vw',
+                    transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                    transition: isPanning ? 'none' : 'transform 0.15s ease-out'
+                  }}
+                  draggable={false}
+                />
+              </div>
+            ) : (
+              <div className="text-neutral-400 text-xs">Görsel yok</div>
+            )}
+            {images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); next(-1); }}
+                  aria-label="Önceki"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full w-10 h-10 grid place-items-center backdrop-blur-sm"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); next(1); }}
+                  aria-label="Sonraki"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full w-10 h-10 grid place-items-center backdrop-blur-sm"
+                >
+                  ›
+                </button>
+              </>
+            )}
+          </div>
+          <div className="absolute inset-x-0 bottom-2 flex justify-center">
+            {images.length > 1 && (
+              <div className="flex gap-2 px-4 py-2 bg-black/30 rounded-full backdrop-blur-sm">
+                {images.map((u,i) => (
+                  <button
+                    key={i}
+                    onClick={() => setIdx(i)}
+                    className={`w-3 h-3 rounded-full ${i===idx ? 'bg-white' : 'bg-white/40 hover:bg-white/70'}`}
+                    aria-label={`Görsel ${i+1}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Zoom controls */}
+          <div className="absolute right-3 bottom-20 flex flex-col gap-2">
+            <button
+              onClick={() => setZoom((z)=> Math.min(4, +(z+0.25).toFixed(2)))}
+              disabled={zoom>=4}
+              className="w-10 h-10 rounded-md bg-white/15 hover:bg-white/25 text-white text-xl font-semibold backdrop-blur disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Yakınlaştır"
+            >+
+            </button>
+            <button
+              onClick={() => setZoom((z)=> Math.max(1, +(z-0.25).toFixed(2)))}
+              disabled={zoom<=1}
+              className="w-10 h-10 rounded-md bg-white/15 hover:bg-white/25 text-white text-xl font-semibold backdrop-blur disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Uzaklaştır"
+            >−
+            </button>
+            <button
+              onClick={() => { setZoom(1); setOffset({x:0,y:0}); }}
+              disabled={zoom===1}
+              className="w-10 h-10 rounded-md bg-white/15 hover:bg-white/25 text-white text-xs font-medium backdrop-blur disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Sıfırla"
+            >Sıfırla
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
 
-function ProductPrice({ onRequestQuote }) {
+import { SOCIAL_LINKS } from "../lib/socialLinks.js";
+function ProductPrice({ product }) {
+  const message = encodeURIComponent(`Merhaba, ${product?.title || product?.sku} ürünü için fiyat teklifi almak istiyorum.`);
+  const wa = `${SOCIAL_LINKS.whatsapp}?text=${message}`;
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white p-4 md:p-5 shadow-sm mb-5">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-neutral-900">Fiyat İçin Teklif Alın</div>
-          <div className="text-xs text-neutral-500 mt-1">En Uygun Fiyatı Size Özel Hazırlıyoruz</div>
+          <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-neutral-900">Fiyat Teklifi İste</div>
+          <div className="text-xs text-neutral-500 mt-1">WhatsApp üzerinden hızlı teklif alın</div>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <button
-            onClick={onRequestQuote}
-            className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-neutral-500 text-white hover:bg-neutral-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 active:scale-[0.99] transition"
+          <a
+            href={wa}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 active:scale-[0.99] transition"
           >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+              <path d="M12.04 2c-5.52 0-10 4.42-10 9.87 0 1.74.47 3.43 1.37 4.92L2 22l5.4-1.76c1.43.78 3.05 1.19 4.67 1.19h.01c5.52 0 10-4.42 10-9.87 0-2.64-1.07-5.12-3.02-6.99A10.55 10.55 0 0 0 12.04 2Zm5.88 14.19c-.25.7-1.46 1.33-2.02 1.39-.52.05-1.18.07-1.9-.12-.44-.11-1-.32-1.72-.63-3.03-1.31-5-4.37-5.15-4.58-.15-.21-1.23-1.64-1.23-3.13 0-1.48.78-2.2 1.06-2.5.28-.3.61-.37.82-.37.2 0 .4.01.57.01.18.01.42-.07.66.5.25.6.85 2.07.92 2.22.07.15.12.32.02.52-.1.21-.15.33-.3.51-.15.17-.31.39-.44.52-.15.15-.31.32-.13.63.18.3.8 1.32 1.72 2.14 1.18 1.05 2.17 1.38 2.48 1.54.31.15.49.13.67-.08.18-.21.77-.88.97-1.18.2-.3.41-.24.68-.14.28.1 1.76.83 2.06.98.3.15.5.23.57.36.07.12.07.72-.18 1.42Z" />
             </svg>
-            <span className="font-semibold">Teklif Al</span>
-          </button>
+            <span className="font-semibold">Teklif al</span>
+          </a>
         </div>
       </div>
     </div>
@@ -317,7 +589,7 @@ function RelatedSlider({ items }) {
                 <Link
                   key={r.id}
                   to={`/urunler/${encodeURIComponent(r.sku)}`}
-                  onClick={() => window.scrollTo(0, 0)}
+                  onClick={() => { if (r?.sku) { logProductClick(r.sku).catch(()=>{}); } window.scrollTo(0,0); }}
                   className="group flex-none rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition"
                   style={{ width: slideW }}
                 >
@@ -453,12 +725,14 @@ export default function UrunDetay() {
     return () => controller.abort();
   }, [sku]);
 
-  // Log product view (separately recorded)
+  // Log product view: yalnızca ürün fetch edildikten sonra bir kez.
+  const loggedViewRef = useRef(null);
   useEffect(() => {
-    if (!sku) return;
-    // Fire-and-forget; ignore errors
-    logProductView(sku).catch(() => {});
-  }, [sku]);
+    if (!p?.sku) return;
+    if (loggedViewRef.current === p.sku) return; // duplicate guard
+    loggedViewRef.current = p.sku;
+    logProductView(p.sku).catch(() => {});
+   }, [p?.sku]);
 
   // Apply head/meta using centralized head manager when product is loaded
   useEffect(() => {
@@ -546,7 +820,7 @@ export default function UrunDetay() {
             <StarRating size={16} />
             <span className="text-sm text-neutral-600">5.0 Kalite Puanı</span>
           </div>
-          <ProductPrice onRequestQuote={handleRequestQuote} />
+          <ProductPrice product={p} />
           {p.description && (
             <div className="mb-6">
               <DescriptionFormatted text={p.description} />

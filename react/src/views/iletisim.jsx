@@ -1,19 +1,9 @@
 import WhatsAppButton from '../components/common/WhatsAppButton.jsx';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 export default function Iletisim(){
-  const DEFAULT_QUERY = import.meta.env.VITE_MAP_QUERY || 'Gebze, Kocaeli';
-  const CITIES = useMemo(() => ([
-    { key: 'gebze', label: 'Gebze', query: 'Gebze, Kocaeli' },
-    { key: 'manisa', label: 'Manisa', query: 'Manisa, Türkiye' },
-    { key: 'ankara', label: 'Ankara', query: 'Ankara, Türkiye' },
-  ]), []);
-  const defaultKey = useMemo(() => {
-    const found = CITIES.find(c => c.query.toLowerCase() === DEFAULT_QUERY.toLowerCase());
-    return found?.key || 'gebze';
-  }, [CITIES, DEFAULT_QUERY]);
-  const [selectedKey, setSelectedKey] = useState(defaultKey);
-  const selectedCity = useMemo(() => CITIES.find(c => c.key === selectedKey) || CITIES[0], [CITIES, selectedKey]);
+  const FIXED_ADDRESS = 'Yenikent, Mehmet Akif Ersoy Cd. No:52, 41400 Gebze/Kocaeli';
+  const MAP_QUERY = useMemo(() => FIXED_ADDRESS, []);
   return (
     <div className="max-w-5xl mx-auto px-6 py-20 relative">
       <h1 className="text-3xl font-bold tracking-tight mb-4">İletişim</h1>
@@ -24,14 +14,14 @@ export default function Iletisim(){
           <div className="space-y-4">
             <div>
               <h3 className="text-sm font-semibold tracking-wide text-neutral-700">Adres</h3>
-              <p className="text-xs text-neutral-600 mt-1 leading-relaxed">(Placeholder) Organize Sanayi Bölgesi<br/> 1. Cadde No: 00 Şehir / Ülke</p>
+              <p className="text-xs text-neutral-600 mt-1 leading-relaxed whitespace-pre-line">{FIXED_ADDRESS}</p>
             </div>
             <div className="grid grid-cols-2 gap-6 text-xs">
               <div>
                 <h4 className="font-semibold tracking-wide text-neutral-700 text-[11px]">Telefon</h4>
-                <p className="text-neutral-600 mt-1">+90 (000) 000 00 00</p>
+                <p className="text-neutral-600 mt-1">+90 (541) 452 60 58</p>
                 <a
-                  href="tel:+900000000000"
+                  href="tel:+905414526058"
                   className="inline-flex items-center gap-1 mt-2 text-[11px] font-medium text-green-600 hover:text-green-700 hover:underline transition"
                   aria-label="Telefonu ara"
                 >
@@ -43,7 +33,7 @@ export default function Iletisim(){
               </div>
               <div>
                 <h4 className="font-semibold tracking-wide text-neutral-700 text-[11px]">E-posta</h4>
-                <p className="text-neutral-600 mt-1 break-all">info@ketenpnomatik.com</p>
+                <p className="text-neutral-600 mt-1 break-all">info@ketenpnomatik.com.tr</p>
               </div>
             </div>
           </div>
@@ -55,38 +45,29 @@ export default function Iletisim(){
               <li>Pazar: Kapalı</li>
             </ul>
           </div>
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold tracking-wide text-neutral-700">Not</h3>
-            <p className="text-xs text-neutral-500 leading-relaxed">Harita görseli placeholder. Gerçek konum koordinatları ve Google Maps iframe / OpenStreetMap embed daha sonra eklenecek.</p>
-          </div>
         </div>
 
         {/* Harita */}
         <div className="lg:col-span-3 relative rounded-2xl overflow-hidden border border-neutral-200 bg-white shadow-sm">
           <div className="relative h-[380px] w-full">
             <iframe
-              key={selectedCity.key}
-              title={`${selectedCity.label} Harita`}
+              title="İşletme Konumu Harita"
               aria-label="Harita"
               className="absolute inset-0 w-full h-full"
               style={{ border: 0 }}
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
-              src={`https://www.google.com/maps?q=${encodeURIComponent(selectedCity.query)}&output=embed&z=13`}
+              src={`https://www.google.com/maps?q=${encodeURIComponent(MAP_QUERY)}&output=embed&z=15`}
             />
           </div>
-          <div className="border-t border-neutral-200 bg-neutral-50/70 p-3 flex items-center justify-between gap-3">
-            <label htmlFor="city-select" className="text-[11px] font-semibold tracking-wide text-neutral-600">Şehir Seçin</label>
-            <select
-              id="city-select"
-              value={selectedKey}
-              onChange={(e)=>setSelectedKey(e.target.value)}
-              className="text-sm bg-white border border-neutral-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-orange"
-            >
-              {CITIES.map(c => (
-                <option key={c.key} value={c.key}>{c.label}</option>
-              ))}
-            </select>
+          <div className="border-t border-neutral-200 bg-neutral-50/70 p-3 text-[11px] font-medium text-neutral-600 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                <path d="M12 21s-6-5.686-6-11a6 6 0 1 1 12 0c0 5.314-6 11-6 11Z" />
+                <circle cx="12" cy="10" r="2.5" />
+              </svg>
+              Sabit Konum Gösteriliyor
+            </span>
           </div>
         </div>
       </div>

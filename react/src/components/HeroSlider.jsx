@@ -28,7 +28,7 @@ const SLIDES = [
     tagline: '24/7 Çalışma Dayanıklılığı',
     desc: 'Ağır hat üretimi ve vardiya koşulları için sürekli performans, düşük arıza süresi.',
     ctaPrimary: 'Endüstriyel Seri',
-    ctaSecondary: 'Dayanıklılık',
+    ctaSecondary: 'Teklif Al',
     bg: 'from-[#1d120f] via-[#2a1c17] to-[#120904]',
     accent: 'amber-500'
   }
@@ -74,13 +74,49 @@ export default function HeroSlider({ onFirstShown }){
                 <p className="text-lg md:text-2xl font-light text-neutral-200">{s.tagline}</p>
                 <p className="max-w-3xl mx-auto text-base md:text-lg text-neutral-300 leading-relaxed">{s.desc}</p>
                 <div className="mt-4 flex flex-col sm:flex-row gap-4 justify-center">
-                  <button className="group inline-flex items-center justify-center gap-2 rounded-xl bg-brand-orange px-7 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_-6px_rgba(255,122,0,.55)] hover:bg-orange-500 transition">
-                    {s.ctaPrimary}
-                    <span className="transition-transform group-hover:translate-x-1">→</span>
-                  </button>
-                  <button className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 backdrop-blur px-7 py-3 text-sm font-semibold text-white hover:bg-white/20 transition">
-                    {s.ctaSecondary}
-                  </button>
+                  {(() => {
+                    // Slide bazlı URL haritaları
+                    let primaryHref = '#';
+                    let secondaryHref = '#';
+                    let primaryExternal = false;
+                    let secondaryExternal = false;
+                    // Ortak referanslar
+                    const PDF = 'https://www.ketenpnomatik.com.tr/wp-content/uploads/KETEN-PNOMATIK-2025-KATALOG-2.pdf';
+                    const SITE = 'https://www.ketenpnomatik.com.tr/';
+                    const CONTACT = '/iletisim';
+                    const PRODUCTS = '/urunler';
+                    if (s.id === 1) { // KETEN PNÖMATİK
+                      primaryHref = PDF; primaryExternal = true; // Katalog Görüntüle
+                      secondaryHref = CONTACT; // İletişime Geç
+                    } else if (s.id === 2) { // PROFESYONEL SERİ
+                      primaryHref = PRODUCTS; // Profesyonel Seri -> ürünler
+                      secondaryHref = CONTACT; // Detay Al -> iletişim
+                    } else if (s.id === 3) { // ENDÜSTRİYEL SERİ
+                      primaryHref = SITE; primaryExternal = true; // Endüstriyel Seri -> site
+                      secondaryHref = CONTACT; // Teklif Al -> iletişim
+                    }
+                    const PrimaryTag = primaryExternal ? 'a' : 'a';
+                    const SecondaryTag = secondaryExternal ? 'a' : 'a';
+                    return (
+                      <>
+                        <PrimaryTag
+                          href={primaryHref}
+                          {...(primaryExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                          className="group inline-flex items-center justify-center gap-2 rounded-xl bg-brand-orange px-7 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_-6px_rgba(255,122,0,.55)] hover:bg-orange-500 transition"
+                        >
+                          {s.ctaPrimary}
+                          <span className="transition-transform group-hover:translate-x-1">→</span>
+                        </PrimaryTag>
+                        <SecondaryTag
+                          href={secondaryHref}
+                          {...(secondaryExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                          className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 backdrop-blur px-7 py-3 text-sm font-semibold text-white hover:bg-white/20 transition"
+                        >
+                          {s.ctaSecondary}
+                        </SecondaryTag>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

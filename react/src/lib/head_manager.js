@@ -1,124 +1,70 @@
-// Head manager for product detail pages
-// Computes title/meta/OG/Twitter/JSON-LD and safely injects into <head>
+/* -------------------- Environment & Helpers -------------------- */
+// Vite env erişimi (import.meta.env) üzerinden; undefined ise güvenli default.
+const VENV = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : {};
+export const ENV_SITE_NAME = VENV.VITE_SITE_NAME || 'Havalı Endüstri';
+export const ENV_SITE_URL = (VENV.VITE_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://example.com')).replace(/\/$/, '');
+export const ENV_DEFAULT_CURRENCY = VENV.VITE_DEFAULT_CURRENCY || 'TRY';
+export const ENV_DEFAULT_LOCALE = VENV.VITE_DEFAULT_LOCALE || 'tr-TR';
+export const ENV_TWITTER_SITE = VENV.VITE_TWITTER_SITE || '@site';
+export const ENV_TWITTER_CREATOR = VENV.VITE_TWITTER_CREATOR || '@creator';
+export const ENV_DEFAULT_ROBOTS = VENV.VITE_DEFAULT_ROBOTS || 'index,follow';
+export const ENV_GA_ID = VENV.VITE_GA_ID || 'G-8SBSGKGS59';
 
-// ------- Env defaults (Vite) -------
-let ENV = {};
-try {
-  // import.meta is available in Vite ESM builds
-  // eslint-disable-next-line no-undef
-  ENV = import.meta.env || {};
-} catch (_) {
-  ENV = {};
-}
-const ENV_SITE_NAME = ENV.VITE_SITE_NAME ?? 'Havalı Satış';
-const ENV_SITE_URL = ENV.VITE_SITE_URL ?? '';
-const ENV_DEFAULT_LOCALE = ENV.VITE_DEFAULT_LOCALE ?? 'tr_TR';
-const ENV_DEFAULT_CURRENCY = ENV.VITE_DEFAULT_CURRENCY ?? 'TRY';
-const ENV_DEFAULT_ROBOTS = ENV.VITE_DEFAULT_ROBOTS ?? 'index, follow';
-const ENV_TWITTER_SITE = ENV.VITE_TWITTER_SITE ?? undefined;
-const ENV_TWITTER_CREATOR = ENV.VITE_TWITTER_CREATOR ?? undefined;
-
-/* -------------------- Helpers -------------------- */
-function getProductImages(p) {
-  const list = [p?.main_img, p?.img1, p?.img2, p?.img3, p?.img4]
-    .map((u) => (u && String(u).trim()) || null)
-    .filter(Boolean);
-  const normalize = (s) => {
-    try {
-      const url = new URL(s);
-      return (url.origin + url.pathname).toLowerCase();
-    } catch {
-      return s.split('?')[0].split('#')[0].toLowerCase();
-    }
-  };
-  const seen = new Set();
-  const uniq = [];
-  for (const u of list) {
-    const key = normalize(u);
-    if (!seen.has(key)) { seen.add(key); uniq.push(u); }
-  }
-  return uniq;
+// Utility: truncate
+function truncate(str, max){
+  if(!str) return '';
+  const s = String(str).trim();
+  if(s.length <= max) return s;
+  return s.slice(0, max - 1).trimEnd() + '…';
 }
 
-function collapseWhitespace(s) {
-  return String(s || '')
-    .replace(/[\r\n\t]+/g, ' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
+// Compose title with site name
+function composeTitle(base, site, limit=60){
+  const t = base && site ? `${base} | ${site}` : (base || site || '');
+  return truncate(t, limit);
 }
 
-function truncate(s, max = 160) {
-  const text = collapseWhitespace(s);
-  if (text.length <= max) return text;
-  return text.slice(0, max - 1).trimEnd() + '…';
+// Current URL helper
+function getCurrentUrl(){
+  if (typeof window === 'undefined') return ENV_SITE_URL;
+  return window.location.href;
 }
 
-function getCurrentUrl() {
+function canonicalFromEnv(url){
   try {
-    return window.location.href;
-  } catch {
-    return '';
-  }
-}
-
-function buildCanonical(url) {
-  if (!url) return '';
-  try {
+    if(!url) return null;
     const u = new URL(url);
-    // Remove fragments and tracking params
-    u.hash = '';
-    ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','fbclid'].forEach((q) => u.searchParams.delete(q));
-    return u.toString();
-  } catch {
-    return url;
+    return ENV_SITE_URL + u.pathname + u.search;
+  } catch { return null; }
+}
+
+function getProductImages(p){
+  if(!p) return [];
+  const list = [p.main_img, p.img1, p.img2, p.img3, p.img4]
+    .map(u => (u && String(u).trim()) || null)
+    .filter(Boolean);
+  const seen = new Set();
+  const out = [];
+  for (const img of list){
+    const key = img.split('?')[0];
+    if(!seen.has(key)){ seen.add(key); out.push(img); }
   }
+  return out;
 }
 
-function canonicalFromEnv(currentUrl) {
-  // Prefer building canonical from configured SITE_URL + current path
-  const base = String(ENV_SITE_URL || '').trim();
-  if (!base) return buildCanonical(currentUrl || '');
-  try {
-    const hasWindow = typeof window !== 'undefined' && window.location;
-    const path = hasWindow ? window.location.pathname : (new URL(currentUrl)).pathname;
-    const canonical = base.replace(/\/$/, '') + path;
-    return buildCanonical(canonical);
-  } catch {
-    return buildCanonical(base);
-  }
+function parseFeatures(p){
+  if(!p) return [];
+  const keys = Array.from({length: 12}, (_,i)=>`feature${i+1}`);
+  return keys.map(k => p[k]).filter(Boolean).map(raw => {
+    const txt = String(raw);
+    const [name, ...rest] = txt.split(':');
+    return { name: name.trim(), value: rest.join(':').trim() };
+  });
 }
 
-function composeTitle(base, siteName, maxTotal = 60) {
-  const suffix = siteName ? ` | ${siteName}` : '';
-  const allowedBase = Math.max(10, maxTotal - suffix.length);
-  const safeBase = truncate(base || '', allowedBase);
-  return (safeBase || siteName || '') + suffix;
-}
-
-function formatPrice(price, currency = 'TRY', locale = 'tr-TR') {
-  // Removed: No longer displaying prices
-  return undefined;
-}
-
-function availabilityText(avail) {
-  if (avail === 'https://schema.org/OutOfStock') return 'Stokta yok';
+function availabilityText(schema){
+  if(schema && schema.includes('OutOfStock')) return 'Stokta Yok';
   return 'Stokta';
-}
-
-function parseFeatures(product) {
-  const keys = Array.from({ length: 8 }, (_, i) => `feature${i + 1}`);
-  const items = [];
-  for (const k of keys) {
-    const raw = product?.[k];
-    if (!raw) continue;
-    const str = String(raw).trim();
-    if (!str) continue;
-    const parts = str.split(':');
-    const name = parts.shift()?.trim();
-    const value = parts.join(':').trim();
-    if (name) items.push({ name, value });
-  }
-  return items;
 }
 
 /* -------------------- Builders -------------------- */
@@ -128,9 +74,10 @@ export function buildProductHead(product, options = {}) {
     brandFallback = 'Havalı',
     currency = ENV_DEFAULT_CURRENCY,
     locale = ENV_DEFAULT_LOCALE,
-    twitterSite = ENV_TWITTER_SITE, // e.g. '@havalisa...' (ASCII)
-    twitterCreator = ENV_TWITTER_CREATOR, // e.g. '@brand_owner'
+    twitterSite = ENV_TWITTER_SITE,
+    twitterCreator = ENV_TWITTER_CREATOR,
     robots = ENV_DEFAULT_ROBOTS,
+  analyticsId = ENV_GA_ID // Google Analytics 4 ölçüm kimliği (env üzerinden)
   } = options;
 
   const p = product || {};
@@ -144,19 +91,19 @@ export function buildProductHead(product, options = {}) {
   const url = getCurrentUrl();
   const canonical = canonicalFromEnv(url);
   const brandName = p?.brand || '';
-  const keywords = p?.seo?.keywords || collapseWhitespace(`${brandName || brandFallback} ${p?.sku || ''} havalı aletler endüstriyel`).trim();
   const imgAlt = p?.title || p?.sku || siteName;
   const updatedTime = p?.updated_at ? new Date(p.updated_at).toISOString() : undefined;
   const availability = typeof p?.stock === 'number' && p.stock <= 0
     ? 'https://schema.org/OutOfStock'
     : 'https://schema.org/InStock';
   const availabilityHuman = availabilityText(availability);
-  const formattedPrice = undefined; // No price display
   const features = parseFeatures(p);
-  const featureKeywords = features.slice(0, 3).map((f) => collapseWhitespace(f.name)).filter(Boolean).join(', ');
-  const mergedKeywords = collapseWhitespace([keywords, featureKeywords].filter(Boolean).join(', '));
+  const localeNormalized = (locale || 'tr-TR').replace('_','-');
+  const ogImage = primaryImage || (images.length ? images[0] : undefined);
+  const twitterCard = ogImage ? 'summary_large_image' : 'summary';
 
-  const jsonLd = {
+  // Product Schema
+  const jsonLdProduct = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     '@id': canonical ? `${canonical}#product` : undefined,
@@ -167,154 +114,258 @@ export function buildProductHead(product, options = {}) {
     url: canonical || undefined,
     category: p?.category || undefined,
     brand: brandName ? { '@type': 'Brand', name: brandName } : undefined,
-    additionalProperty: features.length ? features.map((f) => ({ '@type': 'PropertyValue', name: f.name, value: f.value })) : undefined,
+    additionalProperty: features.length
+      ? features.map((f) => ({ '@type': 'PropertyValue', name: f.name, value: f.value }))
+      : undefined,
     offers: {
       '@type': 'Offer',
       url: canonical || url || undefined,
       priceCurrency: currency,
-      price: undefined, // No price shown - contact for quote
+      price: undefined, // Teklif modeli → fiyat yok
       availability,
       itemCondition: 'https://schema.org/NewCondition',
     },
   };
 
-  // Add a minimal breadcrumb list (Home > Ürünler > Product)
-  const breadcrumbsLd = {
+  // Breadcrumb Schema
+  const jsonLdBreadcrumbs = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
     itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Ana Sayfa', item: (ENV_SITE_URL || (canonical ? new URL(canonical).origin : undefined)) || undefined },
-      { '@type': 'ListItem', position: 2, name: 'Ürünler', item: (ENV_SITE_URL ? ENV_SITE_URL.replace(/\/$/, '') + '/urunler' : (canonical ? new URL(canonical).origin + '/urunler' : undefined)) },
+      { '@type': 'ListItem', position: 1, name: 'Ana Sayfa', item: ENV_SITE_URL },
+      { '@type': 'ListItem', position: 2, name: 'Ürünler', item: ENV_SITE_URL + '/urunler' },
       { '@type': 'ListItem', position: 3, name: p?.title || p?.sku || 'Ürün', item: canonical || undefined },
     ],
+  };
+
+  // Organization Schema
+  const jsonLdOrg = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    '@id': ENV_SITE_URL + '#organization',
+    name: siteName,
+    url: ENV_SITE_URL,
+    logo: ENV_SITE_URL + '/logo.png', // logonun tam yolu
+    contactPoint: [{
+      '@type': 'ContactPoint',
+      telephone: '+90-532-000-0000',
+      contactType: 'sales',
+      availableLanguage: ['tr']
+    }]
+  };
+
+  // Website Schema
+  const jsonLdWebsite = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    '@id': ENV_SITE_URL + '#website',
+    url: ENV_SITE_URL,
+    name: siteName,
+    publisher: { '@id': ENV_SITE_URL + '#organization' },
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: ENV_SITE_URL + '/?s={search_term_string}',
+      'query-input': 'required name=search_term_string'
+    }
   };
 
   return {
     title,
     meta: [
+      { httpEquiv: 'content-language', content: localeNormalized.split('-')[0] },
       { name: 'description', content: metaDescription || `${siteName} - Profesyonel aletler ve endüstriyel çözümler` },
-      { name: 'keywords', content: mergedKeywords },
       { name: 'author', content: siteName },
       { name: 'robots', content: robots },
       { name: 'googlebot', content: 'max-snippet:-1, max-image-preview:large, max-video-preview:-1' },
-      // App/browser hints
       { name: 'theme-color', content: '#ffffff' },
-      // OpenGraph
-      { property: 'og:type', content: 'product' },
-      { property: 'og:title', content: p?.seo?.og_title || baseTitle || siteName },
-      { property: 'og:description', content: metaDescription || `${siteName} - Profesyonel aletler ve endüstriyel çözümler` },
+      // Open Graph
+      { property: 'og:locale', content: localeNormalized },
       { property: 'og:site_name', content: siteName },
-      { property: 'og:url', content: canonical || url || undefined },
-      { property: 'og:locale', content: locale },
-      updatedTime ? { property: 'og:updated_time', content: updatedTime } : null,
-      // Images (include multiple)
-      ...images.slice(0, 3).map((src) => ({ property: 'og:image', content: src })),
-      primaryImage ? { property: 'og:image:alt', content: imgAlt } : null,
-      // Product OG specifics
-      p?.brand ? { property: 'product:brand', content: p.brand } : null,
-      p?.category ? { property: 'product:category', content: p.category } : null,
-      p?.sku ? { property: 'product:retailer_part_no', content: p.sku } : null,
-      { property: 'product:price:currency', content: currency },
-      { property: 'product:availability', content: availability },
-      { property: 'product:condition', content: 'new' },
+      { property: 'og:type', content: 'product' },
+      canonical ? { property: 'og:url', content: canonical } : null,
+      title ? { property: 'og:title', content: title } : null,
+      metaDescription ? { property: 'og:description', content: metaDescription } : null,
+      ogImage ? { property: 'og:image', content: ogImage } : null,
+      ogImage ? { property: 'og:image:alt', content: imgAlt } : null,
       // Twitter
-      { name: 'twitter:card', content: 'summary_large_image' },
+      { name: 'twitter:card', content: twitterCard },
       twitterSite ? { name: 'twitter:site', content: twitterSite } : null,
       twitterCreator ? { name: 'twitter:creator', content: twitterCreator } : null,
-      { name: 'twitter:title', content: p?.seo?.og_title || baseTitle || siteName },
-      { name: 'twitter:description', content: metaDescription || `${siteName} - Profesyonel aletler ve endüstriyel çözümler` },
-      primaryImage ? { name: 'twitter:image', content: primaryImage } : null,
-      primaryImage ? { name: 'twitter:image:alt', content: imgAlt } : null,
-      // Twitter data badges - no price, show availability and features
-      availabilityHuman ? { name: 'twitter:label1', content: 'Durum' } : null,
-      availabilityHuman ? { name: 'twitter:data1', content: availabilityHuman } : null,
-      features[0]?.name ? { name: 'twitter:label2', content: features[0].name } : null,
-      features[0]?.value ? { name: 'twitter:data2', content: features[0].value } : null,
-      features[1]?.name ? { name: 'twitter:label3', content: features[1].name } : null,
-      features[1]?.value ? { name: 'twitter:data3', content: features[1].value } : null,
-      features[2]?.name ? { name: 'twitter:label4', content: features[2].name } : null,
-      features[2]?.value ? { name: 'twitter:data4', content: features[2].value } : null,
+      title ? { name: 'twitter:title', content: title } : null,
+      metaDescription ? { name: 'twitter:description', content: metaDescription } : null,
+      ogImage ? { name: 'twitter:image', content: ogImage } : null,
+      ogImage ? { name: 'twitter:image:alt', content: imgAlt } : null,
+      // Product micro meta (non critical but helpful)
+      brandName ? { name: 'product:brand', content: brandName } : null,
+      p?.sku ? { name: 'product:sku', content: p.sku } : null,
+      availabilityHuman ? { name: 'product:availability', content: availabilityHuman } : null,
+      updatedTime ? { name: 'article:modified_time', content: updatedTime } : null,
     ].filter(Boolean),
     link: [
       canonical ? { rel: 'canonical', href: canonical } : null,
     ].filter(Boolean),
-    jsonLd: [jsonLd, breadcrumbsLd],
+    jsonLd: [jsonLdProduct, jsonLdBreadcrumbs, jsonLdOrg, jsonLdWebsite],
+    analytics: analyticsId ? `
+      <script async src="https://www.googletagmanager.com/gtag/js?id=${analyticsId}"></script>
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '${analyticsId}', { anonymize_ip: true });
+      </script>` : null
   };
 }
 
-/* -------------------- DOM Applier -------------------- */
-function ensureDocument() {
-  return typeof document !== 'undefined' && document.head;
+/* -------------------- DOM Appliers -------------------- */
+const MANAGED_ATTR = 'data-head-managed';
+const MANAGED_VALUE = 'keten';
+
+function removeManaged() {
+  if (typeof document === 'undefined') return;
+  const sel = `head [${MANAGED_ATTR}="${MANAGED_VALUE}"]`;
+  document.querySelectorAll(sel).forEach(el => el.remove());
 }
 
-function removeManagedTags(key) {
-  if (!ensureDocument()) return;
-  const sel = `[data-hs="${key}"]`;
-  document.head.querySelectorAll(sel).forEach((el) => el.remove());
-}
-
-function createTag(tagName, attrs, key, textContent) {
-  const el = document.createElement(tagName);
-  for (const [k, v] of Object.entries(attrs || {})) {
-    if (v != null && v !== '') el.setAttribute(k, String(v));
-  }
-  el.setAttribute('data-hs', key);
-  if (textContent != null) el.textContent = textContent;
-  return el;
-}
-
-export function applyHead(headConfig, options = {}) {
-  const { managerKey = 'product-head' } = options;
-  if (!ensureDocument() || !headConfig) return;
-
-  // Clear previous managed nodes
-  removeManagedTags(managerKey);
-
-  // Title
-  if (headConfig.title) {
-    document.title = headConfig.title;
-  }
-
-  // Meta
-  for (const m of headConfig.meta || []) {
-    const attrs = {};
-    if (m.name) attrs.name = m.name;
-    if (m.property) attrs.property = m.property;
-    if (m.content != null && m.content !== '') attrs.content = m.content;
-    if (Object.keys(attrs).length) {
-      const el = createTag('meta', attrs, managerKey);
-      document.head.appendChild(el);
-    }
-  }
-
-  // Link
-  for (const l of headConfig.link || []) {
-    const attrs = { ...l };
-    const el = createTag('link', attrs, managerKey);
-    document.head.appendChild(el);
-  }
-
-  // JSON-LD
-  for (const obj of headConfig.jsonLd || []) {
-    const el = createTag('script', { type: 'application/ld+json' }, managerKey, JSON.stringify(obj));
-    document.head.appendChild(el);
-  }
-}
-
-export function clearHead(options = {}) {
-  const { managerKey = 'product-head' } = options;
-  removeManagedTags(managerKey);
+export function clearHead() {
+  removeManaged();
 }
 
 export function setProductHead(product, options = {}) {
-  const head = buildProductHead(product, options);
-  applyHead(head, options);
-  return head;
+  if (typeof document === 'undefined') return;
+  const cfg = buildProductHead(product, options) || {};
+  // Title
+  if (cfg.title) document.title = cfg.title;
+  // Clear previous managed elements
+  removeManaged();
+
+  const head = document.head;
+
+  // Meta tags
+  (cfg.meta || []).forEach(m => {
+    if (!m || !m.content) return;
+    // Duplicate check (by name/property + content)
+    const keyAttr = m.name ? 'name' : (m.property ? 'property' : null);
+    if (keyAttr) {
+      const selector = `meta[${keyAttr}="${(m.name||m.property).replace(/"/g,'')}"]`;
+      const existing = head.querySelector(selector);
+      if (existing) existing.remove();
+    }
+    const meta = document.createElement('meta');
+    if (m.name) meta.setAttribute('name', m.name);
+    if (m.property) meta.setAttribute('property', m.property);
+    if (m.httpEquiv) meta.setAttribute('http-equiv', m.httpEquiv);
+    meta.setAttribute('content', m.content);
+    meta.setAttribute(MANAGED_ATTR, MANAGED_VALUE);
+    head.appendChild(meta);
+  });
+
+  // Links (e.g., canonical)
+  (cfg.link || []).forEach(l => {
+    if (!l || !l.rel || !l.href) return;
+    const link = document.createElement('link');
+    link.setAttribute('rel', l.rel);
+    link.setAttribute('href', l.href);
+    link.setAttribute(MANAGED_ATTR, MANAGED_VALUE);
+    head.appendChild(link);
+  });
+
+  // JSON-LD scripts
+  (cfg.jsonLd || []).filter(Boolean).forEach(obj => {
+    try {
+      const script = document.createElement('script');
+      script.type = 'application/ld+json';
+      script.text = JSON.stringify(obj);
+      script.setAttribute(MANAGED_ATTR, MANAGED_VALUE);
+      head.appendChild(script);
+    } catch {
+      /* ignore */
+    }
+  });
+
+  // Analytics snippet (basic GA4) - insert only once
+  if (cfg.analytics && !document.getElementById('ga4-snippet')) {
+    const frag = document.createElement('div');
+    frag.innerHTML = cfg.analytics.trim();
+    Array.from(frag.children).forEach(child => {
+      if (child.tagName === 'SCRIPT') {
+        // Re-create script to ensure execution
+        const s = document.createElement('script');
+        for (const attr of child.getAttributeNames()) {
+          s.setAttribute(attr, child.getAttribute(attr));
+        }
+        s.text = child.text;
+        s.id = child.src ? '' : 'ga4-snippet';
+        s.setAttribute(MANAGED_ATTR, MANAGED_VALUE);
+        head.appendChild(s);
+      }
+    });
+  }
+
+  return cfg;
 }
 
-export default {
-  buildProductHead,
-  applyHead,
-  clearHead,
-  setProductHead,
-};
+/* -------------------- Generic / Home Head -------------------- */
+export function setHomeHead(options = {}) {
+  if (typeof document === 'undefined') return;
+  const {
+    title = ENV_SITE_NAME,
+    description = `${ENV_SITE_NAME} – Profesyonel ve endüstriyel pnömatik el aletleri, dayanıklılık ve ergonomi odaklı çözümler.`,
+    image,
+    locale = ENV_DEFAULT_LOCALE,
+    robots = ENV_DEFAULT_ROBOTS,
+  } = options;
+  removeManaged();
+  const head = document.head;
+  const fullTitle = title === ENV_SITE_NAME ? title : `${title} | ${ENV_SITE_NAME}`;
+  document.title = fullTitle;
+  const loc = (locale || 'tr-TR').replace('_','-');
+  const url = (typeof window !== 'undefined') ? window.location.href : ENV_SITE_URL;
+  const canonical = url ? canonicalFromEnv(url) : null;
+  const metas = [
+    { name: 'description', content: description },
+    { name: 'robots', content: robots },
+    { name: 'googlebot', content: 'max-snippet:-1, max-image-preview:large, max-video-preview:-1' },
+    { property: 'og:locale', content: loc },
+    { property: 'og:site_name', content: ENV_SITE_NAME },
+    { property: 'og:type', content: 'website' },
+    canonical ? { property: 'og:url', content: canonical } : null,
+    { property: 'og:title', content: fullTitle },
+    { property: 'og:description', content: description },
+    image ? { property: 'og:image', content: image } : null,
+    image ? { property: 'og:image:alt', content: ENV_SITE_NAME } : null,
+    { name: 'twitter:card', content: image ? 'summary_large_image' : 'summary' },
+    { name: 'twitter:title', content: fullTitle },
+    { name: 'twitter:description', content: description },
+    image ? { name: 'twitter:image', content: image } : null,
+  ].filter(Boolean);
+  metas.forEach(m => {
+    if(!m.content) return;
+    const el = document.createElement('meta');
+    if (m.name) el.setAttribute('name', m.name);
+    if (m.property) el.setAttribute('property', m.property);
+    el.setAttribute('content', m.content);
+    el.setAttribute(MANAGED_ATTR, MANAGED_VALUE);
+    head.appendChild(el);
+  });
+  if (canonical){
+    const link = document.createElement('link');
+    link.setAttribute('rel','canonical');
+    link.setAttribute('href', canonical);
+    link.setAttribute(MANAGED_ATTR, MANAGED_VALUE);
+    head.appendChild(link);
+  }
+  // Add minimal Organization schema only once on home
+  const orgSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: ENV_SITE_NAME,
+    url: ENV_SITE_URL,
+    logo: ENV_SITE_URL + '/logo.png'
+  };
+  const script = document.createElement('script');
+  script.type = 'application/ld+json';
+  script.text = JSON.stringify(orgSchema);
+  script.setAttribute(MANAGED_ATTR, MANAGED_VALUE);
+  head.appendChild(script);
+}
+

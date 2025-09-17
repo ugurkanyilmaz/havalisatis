@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
-import { fetchProducts, fetchCategories } from '../lib/api.js';
+import { fetchProducts, fetchCategories, logProductClick } from '../lib/api.js';
 import StarRating from '../components/common/StarRating.jsx';
 
 function SearchBar({ value, onChange, onSubmit }){
@@ -20,12 +20,13 @@ function SearchBar({ value, onChange, onSubmit }){
 
 function ProductCard({ p, onAdd }){
   const img = p.main_img || p.img1 || p.img2 || p.img3 || p.img4 || null;
+  const fireClick = () => { if (p?.sku) { logProductClick(p.sku).catch(()=>{}); } window.scrollTo(0,0); };
   return (
   <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden flex flex-col group transition-all duration-300 ease-out transform-gpu shadow-sm ring-1 ring-black/0 hover:-translate-y-1 hover:shadow-lg hover:shadow-neutral-300/50 hover:border-neutral-300 hover:ring-black/5 focus-within:ring-black/10">
       <div className="relative aspect-square bg-neutral-50 overflow-hidden flex items-center justify-center p-0 transition-colors duration-300 group-hover:bg-neutral-100">
         <Link 
           to={`/urunler/${encodeURIComponent(p.sku)}`} 
-          onClick={() => window.scrollTo(0, 0)}
+          onClick={fireClick}
           className="block w-full h-full"
         >
           {img ? (
@@ -45,7 +46,7 @@ function ProductCard({ p, onAdd }){
   <div className="text-sm text-neutral-500">{p.sku || 'SKU'}</div>
   <Link 
     to={`/urunler/${encodeURIComponent(p.sku)}`} 
-    onClick={() => window.scrollTo(0, 0)}
+    onClick={fireClick}
     className="font-semibold line-clamp-2 min-h-[2.5rem] hover:underline"
   >
     {p.title || p.sku}
@@ -57,7 +58,7 @@ function ProductCard({ p, onAdd }){
         <div className="mt-auto flex items-center justify-end">
           <Link 
             to={`/urunler/${encodeURIComponent(p.sku)}`} 
-            onClick={() => window.scrollTo(0, 0)}
+            onClick={fireClick}
             className="text-[10px] font-medium px-2 py-1 rounded-md bg-neutral-500 text-white hover:bg-neutral-600 transition inline-flex items-center gap-1 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300"
           >
             <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>

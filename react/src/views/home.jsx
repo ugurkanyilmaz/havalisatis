@@ -1,8 +1,9 @@
-import proffesionalImg from '../components/proffesional.png';
+import proffesionalImg from '../components/proffesional.jpg';
 import endustryImg from '../components/endustry.png';
 import HeroSlider from '../components/HeroSlider.jsx';
 import { useEffect, useState } from 'react';
-import { fetchPopularProducts } from '../lib/api.js';
+import { setHomeHead, clearHead } from '../lib/head_manager.js';
+import { fetchPopularProducts, logProductClick } from '../lib/api.js';
 import StarRating from '../components/common/StarRating.jsx';
 import { Link } from 'react-router-dom';
 
@@ -25,8 +26,20 @@ export default function Home() {
     return () => { mounted = false; };
   }, []);
 
+  // SEO Head
+  useEffect(() => {
+    setHomeHead({
+      title: 'Pnömatik-Havalı El Aletleri | Keten Pnömatik',
+      description: 'Profesyonel ve endüstriyel kullanıma uygun pnömatik el aletleri, dayanıklı gövde yapısı, düşük hava tüketimi ve ergonomik tasarım. Keten Pnömatik ile verimliliği artırın.',
+      image: undefined
+    });
+    return () => clearHead();
+  }, []);
+
   return (
     <main className="font-sans bg-neutral-50 text-neutral-800">
+      {/* Sayfa ana başlığı (SEO) */}
+      <h1 className="sr-only">Profesyonel ve Endüstriyel Pnömatik Havalı El Aletleri | Keten Pnömatik</h1>
   {/* HERO SLIDER */}
   <HeroSlider onFirstShown={()=>setCatsAnimate(true)} />
 
@@ -58,7 +71,7 @@ export default function Home() {
                   Ürünlere göz at
                 </a>
                 <a
-                  href={CATALOG_URL}
+                  href="https://www.ketenpnomatik.com.tr/wp-content/uploads/KETEN-PNOMATIK-2025-KATALOG-2.pdf"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="relative inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-300 text-neutral-800 text-[11px] font-semibold tracking-wide px-3 py-1.5 hover:bg-neutral-100 transition"
@@ -84,7 +97,7 @@ export default function Home() {
               </ul>
               <div className="mt-auto pt-2 flex flex-wrap gap-2">
                 <a
-                  href={COMPANY_SITE_URL}
+                  href="https://www.ketenpnomatik.com.tr/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="relative inline-flex items-center justify-center gap-2 rounded-lg bg-brand-orange text-white text-[11px] font-semibold tracking-wide px-3 py-1.5 hover:bg-orange-500 transition shadow-sm"
@@ -92,7 +105,7 @@ export default function Home() {
                   Web sitemizi görüntüle
                 </a>
                 <a
-                  href={CATALOG_URL}
+                  href="https://www.ketenpnomatik.com.tr/wp-content/uploads/KETEN-PNOMATIK-2025-KATALOG-2.pdf"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="relative inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-300 text-neutral-800 text-[11px] font-semibold tracking-wide px-3 py-1.5 hover:bg-neutral-100 transition"
@@ -111,7 +124,7 @@ export default function Home() {
           <div className="flex items-center justify-between flex-wrap gap-4 mb-10">
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Popüler Ürünler</h2>
             {!popLoading && (
-              <span className="text-xs font-medium uppercase tracking-wider text-neutral-500">En Çok Tıklanan 8 • Tıklanma Sayısına Göre</span>
+              <span className="text-xs font-medium uppercase tracking-wider text-neutral-500">En Çok Tıklanan</span>
             )}
           </div>
           {popError && (
@@ -130,11 +143,18 @@ export default function Home() {
                 </div>
               </div>
             ))}
-            {!popLoading && popular.map((p, i) => (
+            {!popLoading && popular.map((p, i) => {
+              const handleClick = (e) => {
+                // Tek tıklama logla, event bubbling ile çift sayımı önle
+                e.stopPropagation();
+                if (p?.sku) { logProductClick(p.sku).catch(()=>{}); }
+                window.scrollTo(0,0);
+              };
+              return (
               <Link
                 key={p.sku || i}
-                to={`/urunler/${p.sku}`}
-                onClick={() => window.scrollTo(0, 0)}
+                to={`/urunler/${encodeURIComponent(p.sku)}`}
+                onClick={handleClick}
                 className="group relative rounded-xl border border-neutral-200 bg-white overflow-hidden p-4 flex flex-col gap-3 transition-all duration-300 ease-out transform-gpu shadow-sm ring-1 ring-black/0 hover:-translate-y-1 hover:shadow-lg hover:shadow-neutral-300/50 hover:border-neutral-300 hover:ring-black/5 focus-within:ring-black/10 cursor-pointer"
               >
                 <div className="relative aspect-square bg-white border border-neutral-200/70 rounded-lg overflow-hidden grid place-items-center p-2 transition-colors duration-300 group-hover:bg-neutral-50">
@@ -156,16 +176,14 @@ export default function Home() {
                   <span>5.0 Kalite</span>
                 </div>
                 <div className="mt-auto pt-2 flex items-center justify-between">
-                  <span className="text-[10px] font-semibold tracking-wider text-neutral-400">{p.clicks} tıklanma</span>
-                  <Link
-                    to={`/urunler/${p.sku}`}
-                    className="text-[11px] font-semibold px-3 py-2 rounded-lg bg-neutral-500 text-white hover:bg-neutral-600 transition inline-flex items-center gap-2 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300"
+                  {/* İç içe <a> problemine (nested anchor) karşı inner Link kaldırıldı */}
+                  <span
+                    className="text-[11px] font-semibold px-3 py-2 rounded-lg bg-neutral-500 text-white inline-flex items-center gap-2 shadow-sm"
                   >
                     İncele
-                  </Link>
+                  </span>
                 </div>
-              </Link>
-            ))}
+              </Link>); })}
             {!popLoading && !popular.length && (
               Array.from({length:8}).map((_,i)=>(
                 <div key={`e-${i}`} className="rounded-xl border border-neutral-200 bg-white p-4 text-xs text-neutral-500 grid place-items-center">
@@ -180,37 +198,23 @@ export default function Home() {
       {/* WHY */}
       <section className="py-24 bg-neutral-50">
         <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-center mb-14">Neden Keten?</h2>
+          <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-center mb-14">Neden Biz?</h2>
           <div className="grid md:grid-cols-3 gap-8">
             <div className="relative rounded-2xl bg-white border border-neutral-200 p-8 shadow-sm hover:shadow-lg transition">
               <div className="absolute -top-3 -left-3 w-10 h-10 rounded-xl bg-brand-orange/10 flex items-center justify-center text-brand-orange font-bold text-lg">1</div>
-              <h4 className="text-lg font-semibold mb-2">Uzun Ömür</h4>
-              <p className="text-sm leading-relaxed text-neutral-600">Optimize iç mekanizma ve kaliteli alaşımlar ile servis intervali uzar.</p>
+              <h4 className="text-lg font-semibold mb-2">Uygulamalı Deneyim ve Hızlı Çözümler</h4>
+              <p className="text-sm leading-relaxed text-neutral-600">Müşterilerimize özel demo hizmetleri sunarak ürünlerimizin performansını yerinde test etme imkanı sağlıyoruz.</p>
             </div>
             <div className="relative rounded-2xl bg-white border border-neutral-200 p-8 shadow-sm hover:shadow-lg transition">
               <div className="absolute -top-3 -left-3 w-10 h-10 rounded-xl bg-brand-orange/10 flex items-center justify-center text-brand-orange font-bold text-lg">2</div>
               <h4 className="text-lg font-semibold mb-2">Verimli Hava Tüketimi</h4>
-              <p className="text-sm leading-relaxed text-neutral-600">Düşük tüketim = daha düşük işletme maliyeti ve sürdürülebilir performans.</p>
+              <p className="text-sm leading-relaxed text-neutral-600">Pazardaki tecrübemizle, müşterilerimizin ihtiyaçlarına en uygun, yüksek performanslı ürünleri seçiyoruz.</p>
             </div>
             <div className="relative rounded-2xl bg-white border border-neutral-200 p-8 shadow-sm hover:shadow-lg transition">
               <div className="absolute -top-3 -left-3 w-10 h-10 rounded-xl bg-brand-orange/10 flex items-center justify-center text-brand-orange font-bold text-lg">3</div>
               <h4 className="text-lg font-semibold mb-2">Servis Ağı</h4>
-              <p className="text-sm leading-relaxed text-neutral-600">Yedek parça ve teknik destek ile minimum duruş süresi.</p>
+              <p className="text-sm leading-relaxed text-neutral-600">Düşük hava tüketimiyle işletme maliyetlerinizi düşürürken, uzman teknik ekibimizle ihtiyacınız olduğunda anında yanınızdayız.</p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA BAND */}
-      <section className="relative overflow-hidden bg-gradient-to-r from-brand-orange via-orange-500 to-amber-400 text-white">
-        <div className="max-w-6xl mx-auto px-6 py-16 flex flex-col md:flex-row md:items-center gap-8">
-          <div className="flex-1">
-            <h3 className="text-2xl md:text-3xl font-bold tracking-tight mb-4 drop-shadow">Proje Odaklı Çözüm mü Arıyorsunuz?</h3>
-            <p className="text-sm md:text-base text-white/90 max-w-xl">Uygulama gereksinimlerinizi paylaşın, doğru pnömatik alet kombinasyonu için sizi yönlendirelim.</p>
-          </div>
-          <div className="flex gap-4">
-            <button className="rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur px-6 py-3 text-sm font-semibold tracking-wide transition">Teklif Al</button>
-            <button className="rounded-xl bg-neutral-900/90 hover:bg-neutral-900 text-sm font-semibold tracking-wide px-6 py-3 transition">İletişim</button>
           </div>
         </div>
       </section>
@@ -220,29 +224,19 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6 py-10 grid md:grid-cols-3 gap-12">
           <div className="space-y-3">
             <h4 className="text-white font-semibold tracking-wide">KETEN PNÖMATİK</h4>
-            <p className="text-xs leading-relaxed text-neutral-400">Profesyonel ve endüstriyel pnömatik el aletlerinde verimlilik & dayanıklılık.</p>
-          </div>
-          <div>
-            <h5 className="text-white font-semibold mb-3 text-xs tracking-wider">KATEGORİLER</h5>
-            <ul className="space-y-1 text-xs">
-              <li>Profesyonel Seri</li>
-              <li>Endüstriyel Seri</li>
-              <li>Darbeli Sıkma</li>
-              <li>Zımpara & Taşlama</li>
-            </ul>
+            <p className="text-xs leading-relaxed text-neutral-400">Profesyonel el aletleri satış platformu.</p>
           </div>
           <div>
             <h5 className="text-white font-semibold mb-3 text-xs tracking-wider">BİLGİ</h5>
             <ul className="space-y-1 text-xs">
-              <li>Hakkında (yakında)</li>
-              <li>Servis (yakında)</li>
-              <li>İletişim (yakında)</li>
-              <li>Gizlilik (placeholder)</li>
+              <li>
+                <Link to="/iletisim" className="text-brand-orange hover:underline">İletişim</Link>
+              </li>
             </ul>
           </div>
         </div>
         <div className="border-t border-white/5 text-center py-5 text-[11px] tracking-wide">
-          © {new Date().getFullYear()} Keten Pnömatik • Tüm hakları saklıdır.
+          © 1998 Keten Pnömatik.
         </div>
       </footer>
     </main>

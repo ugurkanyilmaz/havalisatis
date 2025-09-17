@@ -1,7 +1,7 @@
 // Basit WhatsApp butonu – gerektiğinde phone ve message props'u ile özelleştirilebilir.
 import PropTypes from 'prop-types';
 
-export default function WhatsAppButton({ phone = '905551112233', message = 'Merhaba, teknik servis için destek almak istiyorum.', subtitle = 'Teknik Servis' }) {
+export default function WhatsAppButton({ phone = '905414526058', message = 'Merhaba, teknik servis için destek almak istiyorum.', subtitle = 'Teknik Servis' }) {
   const encoded = encodeURIComponent(message);
   const href = `https://wa.me/${phone}?text=${encoded}`;
   return (
