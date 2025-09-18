@@ -25,34 +25,54 @@ def list_products(
 
 
 def search_products(db: Session, query: str, skip: int = 0, limit: int = 20, category: str | None = None, category_id: int | None = None, category_ids: list[int] | None = None):
-    q = f"%{query.lower()}%"
-    filters = [
-        Product.title.ilike(q),
-        Product.description.ilike(q),
-        Product.sku.ilike(q),
-        Product.category.ilike(q),
-        Product.feature1.ilike(q),
-        Product.feature2.ilike(q),
-        Product.feature3.ilike(q),
-        Product.feature4.ilike(q),
-        Product.feature5.ilike(q),
-        Product.feature6.ilike(q),
-        Product.feature7.ilike(q),
-        Product.feature8.ilike(q),
-    ]
-    # Safely include brand if column exists
-    try:
-        getattr(Product, 'brand')
-        filters.append(Product.brand.ilike(q))
-    except Exception:
-        pass
-    stmt = select(Product).where(or_(*filters))
+    """Search by product name (title) and SKU only, with simple relevance ordering.
+
+    Relevance tiers:
+      1) Exact SKU match (case-insensitive)
+      2) Title startswith query (case-insensitive)
+      3) Title or SKU contains query (case-insensitive)
+
+    Category filters still apply.
+    """
+    from sqlalchemy import func, case
+
+    q = (query or '').strip()
+    if not q:
+        # Fallback to list if empty
+        return list_products(db, skip, limit, category, category_id, category_ids)
+
+    q_like = f"%{q.lower()}%"
+    q_prefix = f"{q.lower()}%"
+
+    # Build base predicate: title contains OR sku contains
+    pred = or_(
+        func.lower(Product.title).like(q_like),
+        func.lower(Product.sku).like(q_like),
+    )
+
+    stmt = select(Product)
+    stmt = stmt.where(pred)
+
+    # Apply category filters
     if category:
         stmt = stmt.where(Product.category == category)
     if category_ids:
         stmt = stmt.where(Product.category_id.in_(category_ids))
     elif category_id:
         stmt = stmt.where(Product.category_id == category_id)
+
+    # Relevance ordering
+    sku_exact = func.lower(Product.sku) == q.lower()
+    title_prefix = func.lower(Product.title).like(q_prefix)
+    order_expr = (
+        case((sku_exact, 0), else_=1)
+        .then(case((title_prefix, 0), else_=1))  # Not all SQL backends support chained then; fallback below
+    )
+    # Fallback: derive two separate CASE columns for portability
+    order1 = case((sku_exact, 0), else_=1)
+    order2 = case((title_prefix, 0), else_=1)
+    stmt = stmt.order_by(order1.asc(), order2.asc(), Product.title.asc())
+
     stmt = stmt.offset(skip).limit(limit)
     return db.scalars(stmt).all()
 

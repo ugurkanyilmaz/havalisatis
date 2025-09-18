@@ -4,6 +4,7 @@ from .config import get_settings
 from .database import engine, Base
 from .models import product, category, analytics  # noqa: F401 ensure models imported
 from .api import products, categories, analytics
+from .middleware.rate_limit import RateLimitMiddleware, match_prefix, match_path
 
 settings = get_settings()
 
@@ -29,6 +30,22 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Rate limiting middleware
+# - Default: 120 req / 60s per IP per method+path bucket
+# - Analytics endpoints are a common target for automated noise: stricter 60/60s
+# - Health and root are already bypassed in middleware
+app.add_middleware(
+    RateLimitMiddleware,
+    default_limit=settings.RATE_LIMIT_DEFAULT_LIMIT,
+    default_window_seconds=settings.RATE_LIMIT_DEFAULT_WINDOW_SECONDS,
+    trust_proxy_headers=True,
+    policies=[
+        # Stricter on analytics endpoints
+        (match_prefix("/api/analytics"), settings.RATE_LIMIT_ANALYTICS_LIMIT, settings.RATE_LIMIT_ANALYTICS_WINDOW_SECONDS),
+        # If you later add auth: (match_prefix("/api/auth"), 10, 60),
+    ],
 )
 
 # Routers

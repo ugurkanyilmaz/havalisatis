@@ -166,7 +166,13 @@ export default function Products(){
     return () => observer.disconnect();
   }, [items.length, loading, hasMore]);
 
-  const onSearch = () => { setSkip(0); load({ reset:true }); };
+  const onSearch = () => {
+    // Trim whitespace to avoid accidental empty/space-only queries
+    const trimmed = (q || '').trim();
+    if (trimmed !== q) setQ(trimmed);
+    setSkip(0);
+    load({ reset: true });
+  };
 
   const enterCategory = async (cat) => {
     // Drive state via URL: set `cat` to the selected category's path
