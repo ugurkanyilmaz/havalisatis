@@ -210,14 +210,15 @@ function ProductGallery({ product }) {
   const [ry, setRy] = useState(0.5); // relative y [0,1] on image
   const [contH, setContH] = useState(0);
   const [imgBox, setImgBox] = useState({ w: 0, h: 0 });
+  const [natBox, setNatBox] = useState({ w: 0, h: 0 }); // natural image size
   const [lensPos, setLensPos] = useState({ x: 0, y: 0 }); // px within container
   const ZOOM = 2.0; // zoom factor for side panel
   const LENS = 110; // lens diameter in px
   const PANEL_W = 384; // px (tailwind w-96)
-  // Detect touch device (disable hover zoom)
-  const isTouch = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    return 'ontouchstart' in window || (navigator?.maxTouchPoints || 0) > 0;
+  // Detect hover capability (enable hover zoom if a fine pointer with hover exists)
+  const hasHover = useMemo(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return true; // assume desktop in SSR/unknown
+    return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   }, []);
 
   const onMove = (e) => {
@@ -239,6 +240,21 @@ function ProductGallery({ product }) {
   };
   const onEnter = (e) => { setHover(true); };
   const onLeave = () => { setHover(false); };
+  // Compute zoom panel style using natural image size to avoid blurry upscaling
+  const computeZoomPanelStyle = () => {
+    const baseW = Math.max(1, imgBox.w);
+    const baseH = Math.max(1, imgBox.h);
+    const natW = natBox.w || baseW;
+    const natH = natBox.h || baseH;
+    const targetW = Math.min(Math.round(baseW * ZOOM), natW);
+    const targetH = Math.min(Math.round(baseH * ZOOM), natH);
+    return {
+      backgroundImage: current ? `url(${current})` : 'none',
+      backgroundRepeat: 'no-repeat',
+      backgroundSize: `${targetW}px ${targetH}px`,
+      backgroundPosition: `${-(rx * targetW - PANEL_W / 2)}px ${-(ry * targetH - contH / 2)}px`,
+    };
+  };
   return (
     <>
       <div className="flex gap-3 p-2 md:p-3">
@@ -297,7 +313,7 @@ function ProductGallery({ product }) {
           <div
             ref={containerRef}
             className="hidden md:flex relative w-full h-full min-h-[420px] bg-neutral-50 rounded-xl overflow-hidden items-center justify-center"
-            {...(!isTouch ? { onMouseMove: onMove, onMouseEnter: onEnter, onMouseLeave: onLeave } : {})}
+            {...(hasHover ? { onMouseMove: onMove, onMouseEnter: onEnter, onMouseLeave: onLeave } : {})}
           >
             {current ? (
               <img
@@ -306,12 +322,19 @@ function ProductGallery({ product }) {
                 alt={product?.title || product?.sku}
                 className="absolute inset-0 w-full h-full object-cover select-none cursor-zoom-in"
                 onClick={() => setLightbox(true)}
+                onLoad={(e) => {
+                  // capture natural size for high-quality zoom panel
+                  const el = e.currentTarget;
+                  if (el?.naturalWidth && el?.naturalHeight) {
+                    setNatBox({ w: el.naturalWidth, h: el.naturalHeight });
+                  }
+                }}
                 draggable={false}
               />
             ) : (
               <div className="w-full h-full grid place-items-center text-neutral-400 text-xs">Görsel yok</div>
             )}
-            {!isTouch && hover && current && (
+            {hasHover && hover && current && (
               <div
                 className="pointer-events-none absolute rounded-full border border-orange-300 bg-orange-200/25 shadow-sm"
                 style={{ width: LENS, height: LENS, left: lensPos.x, top: lensPos.y }}
@@ -338,19 +361,14 @@ function ProductGallery({ product }) {
               </>
             )}
           </div>
-          {!isTouch && hover && current && imgBox.w > 0 && (
+          {hasHover && hover && current && imgBox.w > 0 && (
             <div
               className="hidden md:block absolute top-0"
               style={{ left: `calc(100% + 12px)`, width: PANEL_W, height: contH }}
             >
               <div
                 className="w-full h-full rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm"
-                style={{
-                  backgroundImage: `url(${current})`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundSize: `${imgBox.w * ZOOM}px ${imgBox.h * ZOOM}px`,
-                  backgroundPosition: `${-(rx * imgBox.w * ZOOM - PANEL_W / 2)}px ${-(ry * imgBox.h * ZOOM - contH / 2)}px`,
-                }}
+                style={computeZoomPanelStyle()}
               />
             </div>
           )}
@@ -545,6 +563,8 @@ function RelatedSlider({ items }) {
   const [idx, setIdx] = useState(0);
   const [perView, setPerView] = useState(3);
   const [vw, setVw] = useState(0);
+  // Touch swipe state
+  const touchRef = useRef({ startX: 0, startY: 0, deltaX: 0, dragging: false });
 
   useEffect(() => {
     const calc = () => {
@@ -572,13 +592,46 @@ function RelatedSlider({ items }) {
     });
   };
 
+  // Touch swipe handlers (mobile)
+  const onTouchStart = (e) => {
+    if (window.innerWidth > 900) return; // only mobile/tablet
+    const t = e.changedTouches[0];
+    touchRef.current = { startX: t.clientX, startY: t.clientY, deltaX: 0, dragging: true };
+  };
+  const onTouchMove = (e) => {
+    if (!touchRef.current.dragging) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchRef.current.startX;
+    const dy = t.clientY - touchRef.current.startY;
+    // only consider mostly horizontal gestures
+    if (Math.abs(dx) > Math.abs(dy)) {
+      touchRef.current.deltaX = dx;
+    }
+  };
+  const onTouchEnd = () => {
+    if (!touchRef.current.dragging) return;
+    const { deltaX } = touchRef.current;
+    const THRESH = 40; // px
+    if (Math.abs(deltaX) > THRESH) {
+      if (deltaX > 0) go(-1); else go(1);
+    }
+    touchRef.current.dragging = false;
+    touchRef.current.deltaX = 0;
+  };
+
   return (
     <div className="mt-12 relative">
       <div className="px-1 pb-3 text-sm font-semibold text-neutral-700">Benzer Ürünler</div>
       <div className="relative">
         <div className="pointer-events-none absolute left-0 top-0 h-full w-8 bg-gradient-to-r from-white to-transparent" />
         <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-white to-transparent" />
-        <div ref={viewportRef} className="overflow-hidden">
+        <div
+          ref={viewportRef}
+          className="overflow-hidden"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
           <div
             className="flex transition-transform duration-500 ease-out"
             style={{ width: slideW * items.length, transform: `translateX(-${idx * slideW}px)` }}

@@ -36,9 +36,22 @@ const SLIDES = [
 
 export default function HeroSlider({ onFirstShown }){
   const [index, setIndex] = useState(0);
-  const next = ()=> setIndex(i => (i + 1) % SLIDES.length);
-  const prev = () => setIndex(i => (i - 1 + SLIDES.length) % SLIDES.length);
-  const go = i => setIndex(i);
+  const [paused, setPaused] = useState(false);
+  const [resetTick, setResetTick] = useState(0);
+
+  const restartAuto = () => setResetTick(Date.now());
+  const next = () => {
+    setIndex(i => (i + 1) % SLIDES.length);
+    restartAuto();
+  };
+  const prev = () => {
+    setIndex(i => (i - 1 + SLIDES.length) % SLIDES.length);
+    restartAuto();
+  };
+  const go = i => {
+    setIndex(i);
+    restartAuto();
+  };
 
   // İlk slide görünür olduğunda callback tetikle (bir kez)
   const firstShownRef = useRef(false);
@@ -49,12 +62,51 @@ export default function HeroSlider({ onFirstShown }){
     }
   }, [index, onFirstShown]);
 
-  // No auto-rotation, no swipe/scroll handlers
+  // 3s auto-rotation (pausable and resets on interaction)
+  useEffect(() => {
+    if (paused) return;
+    const id = setInterval(() => {
+      setIndex(i => (i + 1) % SLIDES.length);
+    }, 3000);
+    return () => clearInterval(id);
+  }, [paused, resetTick]);
+
+  // Touch swipe support (mobile)
+  const touchRef = useRef({ startX: 0, startY: 0, deltaX: 0, dragging: false });
+  const onTouchStart = (e) => {
+    const t = e.changedTouches[0];
+    touchRef.current = { startX: t.clientX, startY: t.clientY, deltaX: 0, dragging: true };
+    setPaused(true);
+  };
+  const onTouchMove = (e) => {
+    if (!touchRef.current.dragging) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchRef.current.startX;
+    const dy = t.clientY - touchRef.current.startY;
+    // only consider mostly horizontal gestures
+    if (Math.abs(dx) > Math.abs(dy)) {
+      touchRef.current.deltaX = dx;
+    }
+  };
+  const onTouchEnd = () => {
+    const { deltaX } = touchRef.current;
+    const THRESH = 40; // px
+    if (Math.abs(deltaX) > THRESH) {
+      if (deltaX > 0) prev(); else next();
+    }
+    touchRef.current.dragging = false;
+    touchRef.current.deltaX = 0;
+    setPaused(false);
+  };
 
   return (
     <section className="relative overflow-hidden isolate">
       <div
         className="relative h-[560px] md:h-[600px]"
+  // Otomatik geçiş her zaman devam etsin, mouse hover'da dursa bile
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
       >
         {SLIDES.map((s, i) => {
           const active = i === index;
