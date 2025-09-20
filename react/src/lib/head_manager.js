@@ -2,7 +2,10 @@
 // Vite env erişimi (import.meta.env) üzerinden; undefined ise güvenli default.
 const VENV = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : {};
 export const ENV_SITE_NAME = VENV.VITE_SITE_NAME || 'Havalı Endüstri';
-export const ENV_SITE_URL = (VENV.VITE_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://example.com')).replace(/\/$/, '');
+// Site URL: prefer explicit env; if missing, avoid using localhost as canonical base
+const runtimeOrigin = (typeof window !== 'undefined') ? window.location.origin : '';
+const isLocalhost = runtimeOrigin.includes('localhost') || runtimeOrigin.startsWith('http://127.0.0.1') || runtimeOrigin.startsWith('http://0.0.0.0');
+export const ENV_SITE_URL = (VENV.VITE_SITE_URL && String(VENV.VITE_SITE_URL).replace(/\/$/, '')) || (!isLocalhost && runtimeOrigin ? runtimeOrigin.replace(/\/$/, '') : 'https://example.com');
 export const ENV_DEFAULT_CURRENCY = VENV.VITE_DEFAULT_CURRENCY || 'TRY';
 export const ENV_DEFAULT_LOCALE = VENV.VITE_DEFAULT_LOCALE || 'tr-TR';
 export const ENV_TWITTER_SITE = VENV.VITE_TWITTER_SITE || '@site';
@@ -33,8 +36,13 @@ function getCurrentUrl(){
 function canonicalFromEnv(url){
   try {
     if(!url) return null;
+    // Don't produce canonical with localhost base; require a non-local ENV_SITE_URL
+    const base = ENV_SITE_URL || '';
+    if (!base || base.includes('localhost') || base.startsWith('http://127.0.0.1') || base.startsWith('http://0.0.0.0')) {
+      return null;
+    }
     const u = new URL(url);
-    return ENV_SITE_URL + u.pathname + u.search;
+    return base + u.pathname + u.search;
   } catch { return null; }
 }
 
@@ -65,6 +73,31 @@ function parseFeatures(p){
 function availabilityText(schema){
   if(schema && schema.includes('OutOfStock')) return 'Stokta Yok';
   return 'Stokta';
+}
+
+// Build meta keywords from product fields and technical features
+function buildKeywords(product, features){
+  try {
+    const p = product || {};
+    const set = new Set();
+    const add = (v) => { if(!v) return; const s = String(v).trim(); if(s && s.length > 1) set.add(s); };
+    // Base fields
+    add(p?.title);
+    add(p?.seo?.meta_title);
+    add(p?.sku);
+    add(p?.brand);
+    add(p?.category);
+    // Features: name, value, and combined
+    (features || []).forEach(f => {
+      add(f.name);
+      add(f.value);
+      add(`${f.name} ${f.value}`);
+    });
+    // Limit number of tokens to avoid bloat
+    const list = Array.from(set).slice(0, 30);
+    const joined = list.join(', ');
+    return truncate(joined, 250);
+  } catch { return ''; }
 }
 
 /* -------------------- Builders -------------------- */
@@ -98,6 +131,7 @@ export function buildProductHead(product, options = {}) {
     : 'https://schema.org/InStock';
   const availabilityHuman = availabilityText(availability);
   const features = parseFeatures(p);
+  const keywords = buildKeywords(p, features);
   const localeNormalized = (locale || 'tr-TR').replace('_','-');
   const ogImage = primaryImage || (images.length ? images[0] : undefined);
   const twitterCard = ogImage ? 'summary_large_image' : 'summary';
@@ -174,6 +208,7 @@ export function buildProductHead(product, options = {}) {
     meta: [
       { httpEquiv: 'content-language', content: localeNormalized.split('-')[0] },
       { name: 'description', content: metaDescription || `${siteName} - Profesyonel aletler ve endüstriyel çözümler` },
+      keywords ? { name: 'keywords', content: keywords } : null,
       { name: 'author', content: siteName },
       { name: 'robots', content: robots },
       { name: 'googlebot', content: 'max-snippet:-1, max-image-preview:large, max-video-preview:-1' },

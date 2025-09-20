@@ -36,18 +36,49 @@ def search_products(db: Session, query: str, skip: int = 0, limit: int = 20, cat
     """
     from sqlalchemy import func, case
 
+    # --- Turkish diacritic-insensitive normalization helpers ---
+    def tr_norm_value(s: str) -> str:
+        if not s:
+            return ''
+        mapping = {
+            'I': 'i', 'İ': 'i', 'ı': 'i',
+            'Ğ': 'g', 'ğ': 'g',
+            'Ü': 'u', 'ü': 'u',
+            'Ş': 's', 'ş': 's',
+            'Ö': 'o', 'ö': 'o',
+            'Ç': 'c', 'ç': 'c',
+        }
+        return ''.join(mapping.get(ch, ch) for ch in s).lower()
+
+    def tr_norm_expr(col):
+        expr = col
+        # Replace both uppercase and lowercase forms before lower() to avoid locale pitfalls
+        replacements = [
+            ('I', 'i'), ('İ', 'i'), ('ı', 'i'),
+            ('Ğ', 'g'), ('ğ', 'g'),
+            ('Ü', 'u'), ('ü', 'u'),
+            ('Ş', 's'), ('ş', 's'),
+            ('Ö', 'o'), ('ö', 'o'),
+            ('Ç', 'c'), ('ç', 'c'),
+        ]
+        for src, dst in replacements:
+            expr = func.replace(expr, src, dst)
+        expr = func.lower(expr)
+        return expr
+
     q = (query or '').strip()
     if not q:
         # Fallback to list if empty
         return list_products(db, skip, limit, category, category_id, category_ids)
 
-    q_like = f"%{q.lower()}%"
-    q_prefix = f"{q.lower()}%"
+    norm_q = tr_norm_value(q)
+    q_like = f"%{norm_q}%"
+    q_prefix = f"{norm_q}%"
 
-    # Build base predicate: title contains OR sku contains
+    # Build base predicate on normalized expressions
     pred = or_(
-        func.lower(Product.title).like(q_like),
-        func.lower(Product.sku).like(q_like),
+        tr_norm_expr(Product.title).like(q_like),
+        tr_norm_expr(Product.sku).like(q_like),
     )
 
     stmt = select(Product)
@@ -61,14 +92,9 @@ def search_products(db: Session, query: str, skip: int = 0, limit: int = 20, cat
     elif category_id:
         stmt = stmt.where(Product.category_id == category_id)
 
-    # Relevance ordering
-    sku_exact = func.lower(Product.sku) == q.lower()
-    title_prefix = func.lower(Product.title).like(q_prefix)
-    order_expr = (
-        case((sku_exact, 0), else_=1)
-        .then(case((title_prefix, 0), else_=1))  # Not all SQL backends support chained then; fallback below
-    )
-    # Fallback: derive two separate CASE columns for portability
+    # Relevance ordering (portable): two CASE columns on normalized expressions
+    sku_exact = tr_norm_expr(Product.sku) == norm_q
+    title_prefix = tr_norm_expr(Product.title).like(q_prefix)
     order1 = case((sku_exact, 0), else_=1)
     order2 = case((title_prefix, 0), else_=1)
     stmt = stmt.order_by(order1.asc(), order2.asc(), Product.title.asc())

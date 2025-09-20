@@ -10,7 +10,11 @@ const SLIDES = [
     ctaPrimary: 'Katalog Görüntüle',
     ctaSecondary: 'İletişime Geç',
     bg: 'from-[#1f1f20] via-[#262729] to-[#141415]',
-    accent: 'brand-orange'
+    accent: 'brand-orange',
+    image: '/keten_banner.jpg',
+    imagePos: '50% 50%',
+    // Mobile'de önemli bölgeyi daha yukarı/merkeze al
+    imagePosMobile: '100% 10%'
   },
   {
     id: 2,
@@ -20,17 +24,23 @@ const SLIDES = [
     ctaPrimary: 'Profesyonel Seri',
     ctaSecondary: 'Detay Al',
     bg: 'from-[#081a2b] via-[#0f2538] to-[#05101a]',
-    accent: 'sky-500'
+    accent: 'sky-500',
+    image: '/professional_banner.png',
+    imagePos: '80% 40%',
+    imagePosMobile: '70% 35%'
   },
   {
     id: 3,
     title: 'ENDÜSTRİYEL SERİ',
     tagline: '24/7 Çalışma Dayanıklılığı',
-    desc: 'Ağır hat üretimi ve vardiya koşulları için sürekli performans, düşük arıza süresi.',
+    desc: 'Ağır hat üretimi ve vardiya koşulları için sürekli performans.',
     ctaPrimary: 'Endüstriyel Seri',
     ctaSecondary: 'Teklif Al',
     bg: 'from-[#1d120f] via-[#2a1c17] to-[#120904]',
-    accent: 'amber-500'
+    accent: 'amber-500',
+    image: '/endus.jpg',
+    imagePos: '10% 50%',
+    imagePosMobile: '50% 40%'
   }
 ];
 
@@ -38,6 +48,7 @@ export default function HeroSlider({ onFirstShown }){
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [resetTick, setResetTick] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
 
   const restartAuto = () => setResetTick(Date.now());
   const next = () => {
@@ -67,9 +78,17 @@ export default function HeroSlider({ onFirstShown }){
     if (paused) return;
     const id = setInterval(() => {
       setIndex(i => (i + 1) % SLIDES.length);
-    }, 3000);
+    }, 4000);
     return () => clearInterval(id);
   }, [paused, resetTick]);
+
+  // Responsive breakpoint: track if mobile (< md)
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   // Touch swipe support (mobile)
   const touchRef = useRef({ startX: 0, startY: 0, deltaX: 0, dragging: false });
@@ -116,9 +135,25 @@ export default function HeroSlider({ onFirstShown }){
               aria-hidden={!active}
               className={`absolute inset-0 transition-opacity duration-700 ease-out ${active? 'opacity-100 pointer-events-auto':'opacity-0 pointer-events-none'}`}
             >
-              <div className={`absolute inset-0 bg-gradient-to-br ${s.bg}`} />
-              <div className="absolute -top-32 -left-40 w-[520px] h-[520px] rounded-full bg-brand-orange/30 blur-3xl opacity-40" />
-              <div className="absolute top-24 -right-40 w-[420px] h-[420px] rounded-full bg-white/5 blur-3xl opacity-40" />
+              {s.image ? (
+                <>
+                  <img
+                    src={s.image}
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover select-none"
+                    style={{ objectPosition: (isMobile ? (s.imagePosMobile || s.imagePos) : s.imagePos) || '50% 50%' }}
+                    draggable={false}
+                  />
+                  {/* subtle dark overlay for text readability */}
+                  <div className="absolute inset-0 bg-black/30" />
+                </>
+              ) : (
+                <>
+                  <div className={`absolute inset-0 bg-gradient-to-br ${s.bg}`} />
+                  <div className="absolute -top-32 -left-40 w-[520px] h-[520px] rounded-full bg-brand-orange/30 blur-3xl opacity-40" />
+                  <div className="absolute top-24 -right-40 w-[420px] h-[420px] rounded-full bg-white/5 blur-3xl opacity-40" />
+                </>
+              )}
               <div className="relative max-w-6xl mx-auto px-6 pt-28 md:pt-32 pb-20 text-center text-white flex flex-col gap-6">
                 <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-brand-orange via-orange-400 to-amber-200 drop-shadow-sm">
                   {s.title}

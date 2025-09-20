@@ -4,6 +4,7 @@ from ..schemas.product import ProductCreate, ProductOut, ProductUpdate
 from ..crud.product import list_products, get_product, get_product_by_sku, create_product, update_product, delete_product, search_products
 from ..crud.category import collect_descendant_ids
 from ..database import get_db
+from ..dependencies import require_upload_api_key
 from pydantic import BaseModel
 import csv, io
 from typing import Any
@@ -37,7 +38,7 @@ def list_all(
         return search_products(db, q, skip, limit, category, category_id if not cat_ids else None, cat_ids)
     return list_products(db, skip, limit, category, category_id if not cat_ids else None, cat_ids)
 
-@router.post('/', response_model=ProductOut)
+@router.post('/', response_model=ProductOut, dependencies=[Depends(require_upload_api_key)])
 def create(product_in: ProductCreate, db: Session = Depends(get_db)):
     return create_product(db, product_in)
 
@@ -168,7 +169,7 @@ def _norm_url(v: Any) -> str | None:
     return 'https://' + s.lstrip('/')
 
 
-@router.post('/import-excel')
+@router.post('/import-excel', dependencies=[Depends(require_upload_api_key)])
 async def import_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
     content = await file.read()
     ext = (file.filename or '').split('.')[-1].lower()

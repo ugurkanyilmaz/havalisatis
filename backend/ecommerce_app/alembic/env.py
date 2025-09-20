@@ -19,6 +19,7 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 from app.database import Base
+from app.config import get_settings
 import app.models.product  # Import all models for autogenerate
 import app.models.category
 import app.models.analytics
@@ -42,7 +43,9 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
+    # Prefer app settings over static alembic.ini
+    settings = get_settings()
+    url = settings.DATABASE_URL or config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -61,8 +64,14 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    # Inject app settings DB URL
+    alembic_config = config.get_section(config.config_ini_section, {}).copy()
+    settings = get_settings()
+    if settings.DATABASE_URL:
+        alembic_config["sqlalchemy.url"] = settings.DATABASE_URL
+
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        alembic_config,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

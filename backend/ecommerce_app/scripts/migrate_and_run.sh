@@ -25,5 +25,12 @@ python scripts/db_manager.py check
 
 # Start the FastAPI application
 echo "Starting FastAPI server on 0.0.0.0:8000..."
+
+# Enable auto-reload only in DEBUG mode
+RELOAD_FLAG=""
+if [ "$DEBUG" = "true" ] || [ "$DEBUG" = "1" ]; then
+    RELOAD_FLAG="--reload"
+fi
+
 echo "=== Application Ready ==="
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+exec uvicorn app.main:app --host 0.0.0.0 --port 8000 $RELOAD_FLAG
