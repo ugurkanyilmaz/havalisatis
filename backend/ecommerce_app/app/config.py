@@ -1,10 +1,11 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 from typing import List, Optional
+import secrets
 
 class Settings(BaseSettings):
     APP_NAME: str = "Ketenhavalisatis"
-    DEBUG: bool = True
+    DEBUG: bool = False
     DATABASE_URL: str = "sqlite:///./ecommerce.db"
     SECRET_KEY: str = "CHANGE_ME"
     ALGORITHM: str = "HS256"
@@ -33,6 +34,29 @@ class Settings(BaseSettings):
             return []
         return [o.strip() for o in self.CORS_ALLOWED_ORIGINS.split(',') if o.strip()]
 
+    def validate_for_production(self) -> None:
+        """Fail fast if critical settings are missing when DEBUG is False."""
+        if self.DEBUG:
+            return
+        # SECRET_KEY must not be placeholder
+        if not self.SECRET_KEY or self.SECRET_KEY.strip().upper() in {"CHANGE_ME", "CHANGEME", "SECRET"}:
+            raise RuntimeError("SECRET_KEY must be set to a strong random value in production")
+        # PRODUCT_UPLOAD_API_KEY should be set to use protected endpoints
+        if not self.PRODUCT_UPLOAD_API_KEY:
+            # Soft error -> raise to avoid accidental open endpoint
+            raise RuntimeError("PRODUCT_UPLOAD_API_KEY must be set in production to protect import endpoints")
+        # SITE_BASE_URL is recommended for correct sitemap/robots
+        if not (self.SITE_BASE_URL and self.SITE_BASE_URL.startswith("http")):
+            # Warn via exception message guidance would be too strict; keep as soft warning in logs later if needed
+            pass
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    return Settings()
+    s = Settings()
+    # Validate on load
+    try:
+        s.validate_for_production()
+    except Exception as e:
+        # Re-raise to fail-fast on startup
+        raise
+    return s
