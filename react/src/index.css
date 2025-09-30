@@ -60,9 +60,14 @@ body {overscroll-behavior-y:none; -webkit-font-smoothing:antialiased;}
 	display: block; /* avoid inline image whitespace issues */
 }
 
-/* Make product detail containers neutral/transparent so images don't appear "in a box" */
-.product-detail, .product-detail .product-gallery, .product-detail .product-image, .product-detail .product-gallery > div {
-	background: transparent !important;
+/* Make product detail containers neutral/transparent so images don't appear "in a box".
+   IMPORTANT: avoid using the `background` shorthand on selectors that target
+   elements where we rely on inline `background-image` (e.g. `ProtectedImage`).
+   Using `background` would clear the inline background-image, making images invisible.
+   We only clear the background-color for container elements here and do NOT include
+   `.product-image` so background-image remains intact. */
+.product-detail, .product-detail .product-gallery, .product-detail .product-gallery > div {
+	background-color: transparent !important;
 	border: none !important;
 	box-shadow: none !important;
 }

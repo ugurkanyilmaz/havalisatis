@@ -41,6 +41,13 @@ build/
 .idea/
 .vscode/
 
+# local bulk import files
+api_first.json
+api_first.xlsx
+
+# API configuration (contains DB credentials) - ignore to avoid leaks
+/api/config.php
+
 # Docker
 **/.dockerignore
 **/Dockerfile*

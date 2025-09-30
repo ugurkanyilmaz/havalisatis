@@ -1,5 +1,5 @@
 // API helper functions for product/category endpoints
-export async function fetchCategories(baseUrl = '/php/categories.php') {
+export async function fetchCategories(baseUrl = '/api/categories.php') {
 	const res = await fetch(baseUrl);
 	if (!res.ok) throw new Error('Failed to fetch categories');
 	return res.json();
@@ -8,13 +8,13 @@ export async function fetchCategories(baseUrl = '/php/categories.php') {
 /**
  * Fetch tags. Returns an array of objects: { key: 'lowercased-key', label: 'Display Label' }
  */
-export async function fetchTags(baseUrl = '/php/tags.php') {
+export async function fetchTags(baseUrl = '/api/tags.php') {
 	const res = await fetch(baseUrl);
 	if (!res.ok) throw new Error('Failed to fetch tags');
 	return res.json();
 }
 
-export async function fetchProducts({ parent, child, q, page = 1, per_page = 24 }, baseUrl = '/php/products.php') {
+export async function fetchProducts({ parent, child, q, page = 1, per_page = 24 }, baseUrl = '/api/products.php') {
 	const params = new URLSearchParams();
 	if (parent) params.set('parent', parent);
 	if (child) params.set('child', child);
@@ -29,13 +29,13 @@ export async function fetchProducts({ parent, child, q, page = 1, per_page = 24 
 
 export default { fetchCategories, fetchProducts };
 
-export async function fetchHome(baseUrl = '/php/home.php') {
+export async function fetchHome(baseUrl = '/api/home.php') {
 	const res = await fetch(baseUrl);
 	if (!res.ok) throw new Error('Failed to fetch home lists');
 	return res.json();
 }
 
-export async function fetchProductBySku(sku, baseUrl = '/php/products.php') {
+export async function fetchProductBySku(sku, baseUrl = '/api/products.php') {
 	if (!sku) throw new Error('SKU required');
 	const params = new URLSearchParams();
 	// prefer direct sku lookup (backend returns full product), fall back to q= search

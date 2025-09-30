@@ -49,8 +49,13 @@ export default function AdminPanel() {
 
   useEffect(() => {
     // Check session on mount
-    fetch('/php/admin_check.php')
-      .then((r) => r.json())
+    fetch('/api/admin_check.php', { credentials: 'include' })
+      .then(async (r) => {
+        // robust parsing: handle empty responses
+        const text = await r.text();
+        if (!text) return { logged_in: false };
+        try { return JSON.parse(text); } catch { return { logged_in: false }; }
+      })
       .then((j) => {
         if (j.logged_in) setUser(j.user);
       })
@@ -63,7 +68,7 @@ export default function AdminPanel() {
     if (!user) return;
     const load = async () => {
       try {
-        const res = await fetch('/php/products.php?per_page=200');
+  const res = await fetch('/api/products.php?per_page=200');
         const json = await res.json();
         setProducts(Array.isArray(json.items) ? json.items : []);
       } catch (err) {
@@ -86,12 +91,18 @@ export default function AdminPanel() {
   function doLogin(e) {
     e.preventDefault();
     setLoginError(null);
-    fetch('/php/admin_login.php', {
+    fetch('/api/admin_login.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(loginForm),
+      credentials: 'include'
     })
-      .then((r) => r.json().then((j) => ({ ok: r.ok, json: j })))
+      .then(async (r) => {
+        const text = await r.text();
+        let j = null;
+        try { j = text ? JSON.parse(text) : null; } catch (e) { j = { error: 'Invalid JSON response from server' }; }
+        return { ok: r.ok, json: j };
+      })
       .then(({ ok, json }) => {
         if (!ok) {
           setLoginError(json.error || 'Login failed');
@@ -104,7 +115,7 @@ export default function AdminPanel() {
   }
 
   function doLogout() {
-    fetch('/php/admin_logout.php')
+    fetch('/api/admin_logout.php', { credentials: 'include' })
       .then(() => setUser(null))
       .catch(() => setUser(null));
   }
@@ -186,7 +197,22 @@ export default function AdminPanel() {
               className={`p-2 border rounded cursor-pointer ${
                 selected?.sku === p.sku ? "bg-blue-50 border-blue-400" : ""
               }`}
-              onClick={() => setSelected(p)}
+              onClick={async () => {
+                // Fetch full product details by SKU so admin form receives all fields
+                try {
+                  const r = await fetch(`/api/products.php?sku=${encodeURIComponent(p.sku)}`, { credentials: 'include' });
+                  if (r.ok) {
+                    const j = await r.json();
+                    if (j && j.product) setSelected(j.product);
+                    else setSelected(p);
+                  } else {
+                    // fallback to minimal object
+                    setSelected(p);
+                  }
+                } catch (err) {
+                  setSelected(p);
+                }
+              }}
             >
               <div className="font-medium line-clamp-1">{p.title}</div>
               <div className="text-xs text-gray-500">{p.sku}</div>
@@ -209,7 +235,7 @@ export default function AdminPanel() {
               const file = input.files[0];
               const fd = new FormData(); fd.append('file', file);
               try {
-                const res = await fetch('/php/upload.php', { method: 'POST', body: fd, credentials: 'same-origin' });
+                const res = await fetch('/api/upload.php', { method: 'POST', body: fd, credentials: 'include' });
                 const json = await res.json();
                 if (!res.ok) { alert('Hata: ' + (json.error || JSON.stringify(json))); return; }
                 alert('Yüklendi: inserted=' + json.inserted + ', updated=' + json.updated + ', errors=' + (json.errors?.length || 0));
@@ -231,12 +257,12 @@ export default function AdminPanel() {
                 if (!form) return; 
                 try {
                   const payload = [form];
-                  const res = await fetch('/php/upload.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'same-origin' });
-                  const j = await res.json();
+                  const res = await fetch('/api/upload.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
+                    const j = await res.json();
                   if (!res.ok) { alert('Kaydetme hatası: ' + (j.error || JSON.stringify(j))); return; }
                   alert('Kaydedildi. inserted=' + j.inserted + ', updated=' + j.updated);
                   // reload products
-                  const r2 = await fetch('/php/products.php?per_page=200'); const j2 = await r2.json(); setProducts(Array.isArray(j2.items)? j2.items: []);
+                  const r2 = await fetch('/api/products.php?per_page=200'); const j2 = await r2.json(); setProducts(Array.isArray(j2.items)? j2.items: []);
                 } catch (err) { alert('Kaydetme hatası: ' + err); }
               }}>
               {/* Kategoriler */}
@@ -419,12 +445,12 @@ export default function AdminPanel() {
                       if (!form?.sku) { alert('SKU yok'); return; }
                       if (!confirm('Bu ürünü silmek istediğinize emin misiniz?')) return;
                       try {
-                        const res = await fetch('/php/product_delete.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sku: form.sku }), credentials: 'same-origin' });
+                        const res = await fetch('/api/product_delete.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sku: form.sku }), credentials: 'include' });
                         const j = await res.json();
                         if (!res.ok) { alert('Silme hatası: ' + (j.error || JSON.stringify(j))); return; }
                         alert('Silindi');
                         // reload products and clear selection
-                        const r2 = await fetch('/php/products.php?per_page=200'); const j2 = await r2.json(); setProducts(Array.isArray(j2.items)? j2.items: []);
+                        const r2 = await fetch('/api/products.php?per_page=200'); const j2 = await r2.json(); setProducts(Array.isArray(j2.items)? j2.items: []);
                         setSelected(null); setForm(null);
                       } catch (err) { alert('Silme hatası: ' + err); }
                     }}
