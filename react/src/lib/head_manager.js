@@ -11,7 +11,9 @@ export const ENV_DEFAULT_LOCALE = VENV.VITE_DEFAULT_LOCALE || 'tr-TR';
 export const ENV_TWITTER_SITE = VENV.VITE_TWITTER_SITE || '@site';
 export const ENV_TWITTER_CREATOR = VENV.VITE_TWITTER_CREATOR || '@creator';
 export const ENV_DEFAULT_ROBOTS = VENV.VITE_DEFAULT_ROBOTS || 'index,follow';
-export const ENV_GA_ID = VENV.VITE_GA_ID || 'G-8SBSGKGS59';
+// Read GA ID from env. If it's empty or still the placeholder 'CHANGE_ME', treat as not configured (null)
+const rawGa = VENV.VITE_GA_ID ? String(VENV.VITE_GA_ID).trim() : '';
+export const ENV_GA_ID = (rawGa && rawGa.toUpperCase() !== 'CHANGE_ME') ? rawGa : null;
 
 // Utility: truncate
 function truncate(str, max){
@@ -136,6 +138,17 @@ export function buildProductHead(product, options = {}) {
   const ogImage = primaryImage || (images.length ? images[0] : undefined);
   const twitterCard = ogImage ? 'summary_large_image' : 'summary';
 
+  // Price computation: mirror UI logic (list_price + discount)
+  const listPrice = (p && p.list_price) ? Number(p.list_price) : null;
+  const discountPct = (p && p.discount) ? Number(p.discount) : 0;
+  // Use discounted price (if discount exists), otherwise list price
+  const discountedPrice = listPrice && discountPct > 0 ? Math.round((listPrice * (100 - discountPct)) / 100) : null;
+  // Only expose a price when there is an actual discount (user requested)
+  const priceToUse = (typeof discountedPrice === 'number' && !Number.isNaN(discountedPrice)) ? discountedPrice : null;
+  // Force currency label for metadata to TL when price present; use TRY in JSON-LD per request
+  const priceCurrencyForMeta = priceToUse !== null ? 'TL' : currency;
+  const priceCurrencyForJsonLd = priceToUse !== null ? 'TRY' : currency;
+
   // Product Schema
   const jsonLdProduct = {
     '@context': 'https://schema.org',
@@ -154,8 +167,8 @@ export function buildProductHead(product, options = {}) {
     offers: {
       '@type': 'Offer',
       url: canonical || url || undefined,
-      priceCurrency: currency,
-      price: undefined, // Teklif modeli → fiyat yok
+      priceCurrency: priceToUse !== null ? priceCurrencyForJsonLd : currency,
+      price: priceToUse !== null ? String(priceToUse) : undefined,
       availability,
       itemCondition: 'https://schema.org/NewCondition',
     },
@@ -167,7 +180,7 @@ export function buildProductHead(product, options = {}) {
     '@type': 'BreadcrumbList',
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Ana Sayfa', item: ENV_SITE_URL },
-      { '@type': 'ListItem', position: 2, name: 'Ürünler', item: ENV_SITE_URL + '/urunler' },
+      { '@type': 'ListItem', position: 2, name: 'Ürünlerimiz', item: ENV_SITE_URL + '/urunler' },
       { '@type': 'ListItem', position: 3, name: p?.title || p?.sku || 'Ürün', item: canonical || undefined },
     ],
   };
@@ -233,7 +246,12 @@ export function buildProductHead(product, options = {}) {
       // Product micro meta (non critical but helpful)
       brandName ? { name: 'product:brand', content: brandName } : null,
       p?.sku ? { name: 'product:sku', content: p.sku } : null,
-      availabilityHuman ? { name: 'product:availability', content: availabilityHuman } : null,
+  availabilityHuman ? { name: 'product:availability', content: availabilityHuman } : null,
+  // Price metas (if available)
+  priceToUse !== null ? { name: 'product:price:amount', content: String(priceToUse) } : null,
+  priceToUse !== null ? { name: 'product:price:currency', content: priceCurrencyForMeta } : null,
+  priceToUse !== null ? { property: 'og:price:amount', content: String(priceToUse) } : null,
+  priceToUse !== null ? { property: 'og:price:currency', content: priceCurrencyForMeta } : null,
       updatedTime ? { name: 'article:modified_time', content: updatedTime } : null,
     ].filter(Boolean),
     link: [

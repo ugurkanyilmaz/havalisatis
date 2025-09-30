@@ -1,13 +1,29 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
-import { fetchProductBySku, fetchProducts } from "../lib/api.js";
-import { logProductView, logProductClick } from "../lib/api.js";
 import StarRating from "../components/common/StarRating.jsx";
+import ProtectedImage from "../components/ProtectedImage.jsx";
 import { setProductHead, clearHead } from "../lib/head_manager.js";
+import { fetchProductBySku, fetchProducts } from "../lib/api_calls.js";
 
 /* -------------------- Helpers -------------------- */
 function getProductImage(p) {
-  return p?.main_img || p?.img1 || p?.img2 || p?.img3 || p?.img4 || null;
+  if (!p) return "";
+  const keys = ["main_img", "img1", "img2", "img3", "img4"];
+  for (let k of keys) {
+    let url = p[k];
+    if (url && typeof url === "string") {
+      url = url.trim();
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        return url;
+      } else if (url.startsWith("//")) {
+        return "https:" + url;
+      } else {
+        // senin örnekte olduğu gibi çıplak domain gelirse
+        return "https://" + url;
+      }
+    }
+  }
+  return "";
 }
 
 /* -------------------- Components -------------------- */
@@ -31,14 +47,15 @@ function DescriptionFormatted({ text }) {
     <div className="space-y-3">
       <p className="text-neutral-700">
         {firstBefore ? (
-          <>
+          <span>
             <strong>{firstBefore}</strong>
-            {firstAfter}
-          </>
+            <span>{firstAfter}</span>
+          </span>
         ) : (
-          first
+          <span>{first}</span>
         )}
       </p>
+
       {rest.length > 0 && (
         <ul className="list-disc pl-5 space-y-1 text-neutral-700">
           {rest.map((line, idx) => {
@@ -47,11 +64,11 @@ function DescriptionFormatted({ text }) {
             return (
               <li key={idx}>
                 {right ? (
-                  <>
-                    <strong>{left.trim()}</strong>: {right}
-                  </>
+                  <span>
+                    <strong>{left.trim()}</strong>: <span>{right}</span>
+                  </span>
                 ) : (
-                  line
+                  <span>{line}</span>
                 )}
               </li>
             );
@@ -64,9 +81,25 @@ function DescriptionFormatted({ text }) {
 
 function ProductGallery({ product }) {
   const images = useMemo(() => {
+    const normalizeImgUrl = (s) => {
+      if (!s) return null;
+      let t = String(s).trim();
+      t = t.replace(/&quot;|"/g, '').trim();
+      if (!t) return null;
+      if (/^https?:\/\//i.test(t)) return t;
+      if (/^\/\//.test(t)) return window.location.protocol + t;
+      if (/^[^\s\/]+\.[^\s\/]+/.test(t)) return 'https://' + t;
+      return t;
+    };
+
     const list = [product?.main_img, product?.img1, product?.img2, product?.img3, product?.img4]
-      .map((u) => (u && String(u).trim()) || null)
-      .filter(Boolean);
+      .filter((src) => src && typeof src === "string")
+      .map((src) => {
+        const s = String(src).trim();
+        if (s.startsWith("http")) return s;
+        if (s.startsWith("//")) return "https:" + s;
+        return s;
+      });
     // Remove duplicates (normalize URL: strip query/hash, lowercase)
     const normalize = (s) => {
       try {
@@ -267,23 +300,23 @@ function ProductGallery({ product }) {
                 className={`relative w-full aspect-square rounded-lg overflow-hidden border transition ${i===idx ? 'border-brand-orange ring-1 ring-brand-orange/30' : 'border-neutral-200 hover:border-neutral-300'}`}
                 aria-label={`Görsel ${i+1}`}
               >
-                <div className="w-full h-full bg-neutral-100 grid place-items-center p-1">
-                  <img src={u} alt="thumb" className="max-w-full max-h-full object-contain" />
-                </div>
+                  <div className="w-full h-full bg-gray-50 grid place-items-center">
+                    <ProtectedImage src={u} alt="thumb" className="w-full h-full object-contain no-download product-image" style={{ backgroundSize: 'contain', backgroundPosition: 'center' }} />
+                  </div>
               </button>
             ))}
           </aside>
         )}
         <div className="relative flex-1">
           {/* Mobile container (aspect enforced) */}
-          <div className="block md:hidden w-full aspect-square bg-neutral-50 rounded-xl overflow-hidden flex items-center justify-center">
+          <div className="block md:hidden w-full aspect-square bg-transparent overflow-hidden flex items-center justify-center">
             {current ? (
-              <img
+              <ProtectedImage
                 src={current}
                 alt={product?.title || product?.sku}
                 className="w-full h-full object-contain select-none cursor-zoom-in"
+                style={{ backgroundSize: 'contain', backgroundPosition: 'center' }}
                 onClick={() => setLightbox(true)}
-                draggable={false}
               />
             ) : (
               <div className="w-full h-full grid place-items-center text-neutral-400 text-xs">Görsel yok</div>
@@ -312,34 +345,28 @@ function ProductGallery({ product }) {
           {/* Desktop container (restore original absolute cover style + zoom) */}
           <div
             ref={containerRef}
-            className="hidden md:flex relative w-full h-full min-h-[420px] bg-neutral-50 rounded-xl overflow-hidden items-center justify-center"
+            className="hidden md:flex relative w-full h-full min-h-[420px] bg-transparent overflow-hidden items-center justify-center"
             {...(hasHover ? { onMouseMove: onMove, onMouseEnter: onEnter, onMouseLeave: onLeave } : {})}
           >
             {current ? (
-              <img
+              <ProtectedImage
                 ref={imgRef}
                 src={current}
                 alt={product?.title || product?.sku}
-                className="absolute inset-0 w-full h-full object-cover select-none cursor-zoom-in"
+                className="absolute inset-0 w-full h-full object-cover select-none cursor-zoom-in no-download product-image"
+                style={{ backgroundSize: 'contain', backgroundPosition: 'center' }}
                 onClick={() => setLightbox(true)}
                 onLoad={(e) => {
-                  // capture natural size for high-quality zoom panel
                   const el = e.currentTarget;
                   if (el?.naturalWidth && el?.naturalHeight) {
                     setNatBox({ w: el.naturalWidth, h: el.naturalHeight });
                   }
                 }}
-                draggable={false}
               />
             ) : (
               <div className="w-full h-full grid place-items-center text-neutral-400 text-xs">Görsel yok</div>
             )}
-            {hasHover && hover && current && (
-              <div
-                className="pointer-events-none absolute rounded-full border border-orange-300 bg-orange-200/25 shadow-sm"
-                style={{ width: LENS, height: LENS, left: lensPos.x, top: lensPos.y }}
-              />
-            )}
+            {/* Hover lens intentionally removed to avoid showing a visible circle overlay on products */}
             {images.length > 1 && (
               <>
                 <button
@@ -384,8 +411,8 @@ function ProductGallery({ product }) {
               className={`relative flex-none w-16 h-16 rounded-lg overflow-hidden border ${i===idx ? 'border-brand-orange' : 'border-neutral-200'}`}
               aria-label={`Görsel ${i+1}`}
             >
-              <div className="w-full h-full bg-neutral-100 grid place-items-center p-1">
-                <img src={u} alt="thumb" className="max-w-full max-h-full object-contain" />
+              <div className="w-full h-full bg-gray-50 grid place-items-center">
+                <ProtectedImage src={u} alt="thumb" className="w-full h-full object-contain no-download product-image" style={{ backgroundSize: 'contain', backgroundPosition: 'center' }} />
               </div>
             </button>
           ))}
@@ -396,7 +423,7 @@ function ProductGallery({ product }) {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex flex-col"
+          className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex flex-col no-download"
           onClick={(e) => { if (e.target === e.currentTarget) setLightbox(false); }}
         >
           <div className="flex items-center justify-between px-4 py-3 text-white text-sm">
@@ -427,18 +454,17 @@ function ProductGallery({ product }) {
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
               >
-                <img
-                  src={current}
-                  alt={product?.title || product?.sku}
-                  className="select-none pointer-events-none"
+                <div
+                  className="select-none pointer-events-none no-download product-image"
                   style={{
                     maxHeight: '75vh',
                     maxWidth: '90vw',
                     transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
                     transition: isPanning ? 'none' : 'transform 0.15s ease-out'
                   }}
-                  draggable={false}
-                />
+                >
+                  <ProtectedImage src={current} alt={product?.title || product?.sku} style={{ backgroundSize: 'contain', backgroundPosition: 'center' }} />
+                </div>
               </div>
             ) : (
               <div className="text-neutral-400 text-xs">Görsel yok</div>
@@ -510,26 +536,73 @@ function ProductGallery({ product }) {
 
 import { SOCIAL_LINKS } from "../lib/socialLinks.js";
 function ProductPrice({ product }) {
-  const message = encodeURIComponent(`Merhaba, ${product?.title || product?.sku} ürünü için fiyat teklifi almak istiyorum.`);
-  const wa = `${SOCIAL_LINKS.whatsapp}?text=${message}`;
+  const buyMessage = encodeURIComponent(`Merhaba, ${product?.title || product?.sku} ürünü için satın almak istiyorum. Stok ve ödeme bilgilerini paylaşır mısınız?`);
+  const waBuy = `${SOCIAL_LINKS.whatsapp}?text=${buyMessage}`;
+  const phoneNumber = 'tel:+905414526058';
+  // Treat an explicit 0 (number or string) as 'no public price' so we can
+  // display a special message "Fiyat için teklif alınız" while preserving
+  // truthy numeric prices. Null means unknown/not-provided.
+  const rawList = product?.list_price;
+  const listPrice = rawList === 0 || rawList === '0' ? 0 : (rawList ? Number(rawList) : null);
+  const discountPct = product?.discount ? Number(product.discount) : 0;
+  const discounted = listPrice && discountPct > 0 ? Math.round((listPrice * (100 - discountPct)) / 100) : listPrice;
+
   return (
     <div className="rounded-2xl border border-neutral-200 bg-white p-4 md:p-5 shadow-sm mb-5">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-neutral-900">Fiyat Teklifi İste</div>
-          <div className="text-xs text-neutral-500 mt-1">WhatsApp üzerinden hızlı teklif alın</div>
+          <div className="text-sm text-neutral-500">Liste Fiyatı</div>
+          <div className="flex items-baseline gap-3">
+            { (listPrice || listPrice === 0) ? (
+              listPrice === 0 ? (
+                <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-neutral-900">Fiyat için teklif alınız</div>
+              ) : (
+                <>
+                  {discountPct > 0 ? (
+                    <div className="text-base text-neutral-500 line-through">{listPrice} TL</div>
+                  ) : (
+                    <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-neutral-900">{listPrice} TL</div>
+                  )}
+                  {discountPct > 0 && (
+                    <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-brand-orange">{discounted} TL</div>
+                  )}
+                </>
+              )
+            ) : (
+              <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-neutral-900">Teklif İçin İletişim</div>
+            )}
+          </div>
+          <div className="text-xs text-neutral-500 mt-1">WhatsApp ile hızlı satın alma talebi gönderin veya arayın</div>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
           <a
-            href={wa}
+            href={waBuy}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 active:scale-[0.99] transition"
+            className="w-full md:w-auto inline-flex flex-col items-center justify-center gap-1 px-4 py-3 rounded-xl bg-[#25D366] text-white hover:bg-[#20b85a] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#25D366]/40 active:scale-[0.99] transition"
+            aria-label={`WhatsApp ile satın al: ${product?.title || product?.sku}`}
+            title="WhatsApp ile satın al"
           >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
-              <path d="M12.04 2c-5.52 0-10 4.42-10 9.87 0 1.74.47 3.43 1.37 4.92L2 22l5.4-1.76c1.43.78 3.05 1.19 4.67 1.19h.01c5.52 0 10-4.42 10-9.87 0-2.64-1.07-5.12-3.02-6.99A10.55 10.55 0 0 0 12.04 2Zm5.88 14.19c-.25.7-1.46 1.33-2.02 1.39-.52.05-1.18.07-1.9-.12-.44-.11-1-.32-1.72-.63-3.03-1.31-5-4.37-5.15-4.58-.15-.21-1.23-1.64-1.23-3.13 0-1.48.78-2.2 1.06-2.5.28-.3.61-.37.82-.37.2 0 .4.01.57.01.18.01.42-.07.66.5.25.6.85 2.07.92 2.22.07.15.12.32.02.52-.1.21-.15.33-.3.51-.15.17-.31.39-.44.52-.15.15-.31.32-.13.63.18.3.8 1.32 1.72 2.14 1.18 1.05 2.17 1.38 2.48 1.54.31.15.49.13.67-.08.18-.21.77-.88.97-1.18.2-.3.41-.24.68-.14.28.1 1.76.83 2.06.98.3.15.5.23.57.36.07.12.07.72-.18 1.42Z" />
+            <div className="flex items-center gap-2">
+              {/* WhatsApp icon */}
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+                <path d="M20.52 3.48A11.8 11.8 0 0 0 12 .5 11.91 11.91 0 0 0 .5 12c0 2.11.55 4.18 1.6 6.01L.5 23.5l5.7-1.49A11.91 11.91 0 0 0 12 23.5 11.91 11.91 0 0 0 23.5 12c0-3.19-1.26-6.19-3.0-8.52zM12 21.5c-2.05 0-4.02-.56-5.74-1.62l-.4-.27-3.38.88.9-3.3-.27-.41A9.5 9.5 0 1 1 21.5 12 9.44 9.44 0 0 1 12 21.5z"/>
+                <path d="M17.2 13.1c-.3-.15-1.8-.9-2.1-1.0-.3-.1-.5-.15-.7.15-.2.3-.8 1.0-1.0 1.2-.2.2-.4.25-.7.1-.3-.15-1.2-.44-2.3-1.4-.85-.76-1.42-1.7-1.58-2.0-.16-.3 0-.46.12-.6.12-.12.3-.3.45-.45.15-.15.2-.25.3-.4.1-.15.05-.3 0-.45-.05-.15-.7-1.7-.95-2.35-.25-.6-.5-.5-.7-.5-.2 0-.45 0-.7 0-.25 0-.65.1-.99.45-.34.35-1.3 1.27-1.3 3.08 0 1.8 1.33 3.55 1.52 3.8.2.25 2.62 3.9 6.35 5.47 3.73 1.57 3.73 1.05 4.41.98.68-.07 2.18-.9 2.49-1.77.31-.87.31-1.62.22-1.77-.1-.15-.3-.25-.6-.4z"/>
+              </svg>
+              <span className="font-semibold text-sm">Satın Al</span>
+            </div>
+            <div className="text-xs opacity-90 flex items-center gap-2">
+              <span className="font-medium">{listPrice === 0 ? 'Fiyat için teklif alınız' : (listPrice ? (discountPct>0 ? `${discounted} TL` : `${listPrice} TL`) : 'Teklif Al')}</span>
+            </div>
+          </a>
+          <a
+            href={phoneNumber}
+            className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-neutral-200 text-neutral-800 bg-white hover:bg-neutral-50 shadow-sm focus:outline-none transition"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
+              <path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24 11.36 11.36 0 0 0 3.56.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h2.5a1 1 0 0 1 1 1c0 1.24.19 2.45.57 3.56a1 1 0 0 1-.25 1.01l-2.2 2.22Z" />
             </svg>
-            <span className="font-semibold">Teklif al</span>
+            <span className="font-medium text-sm">Ara</span>
           </a>
         </div>
       </div>
@@ -541,12 +614,12 @@ function FeatureTable({ features }) {
   if (!features.length) return null;
   return (
     <div className="mt-12 max-w-3xl mx-auto rounded-xl border border-neutral-200 bg-white overflow-hidden">
-      <div className="px-4 py-3 bg-neutral-50 border-b border-neutral-200 text-sm font-semibold text-neutral-700">Teknik Özellikler</div>
+      <div className="px-4 py-3 bg-gray-50 border-b border-neutral-200 text-sm font-semibold text-neutral-700">Teknik Özellikler</div>
       <div className="p-0 overflow-x-auto">
         <table className="w-full text-sm">
           <tbody>
             {features.map((f, i) => (
-              <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-neutral-50'}>
+              <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                 <td className="py-3 px-4 align-top w-1/3 font-semibold text-neutral-700">{f.name || '-'}</td>
                 <td className="py-3 px-4 text-neutral-800">{f.value}</td>
               </tr>
@@ -642,21 +715,36 @@ function RelatedSlider({ items }) {
                 <Link
                   key={r.id}
                   to={`/urunler/${encodeURIComponent(r.sku)}`}
-                  onClick={() => { if (r?.sku) { logProductClick(r.sku).catch(()=>{}); } window.scrollTo(0,0); }}
+                  onClick={() => { window.scrollTo(0,0); }}
                   className="group flex-none rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition"
                   style={{ width: slideW }}
                 >
-                  <div className="aspect-square bg-neutral-50 flex items-center justify-center p-0">
-                    {rimg ? (
-                      <img src={rimg} alt={r.title || r.sku} className="block w-full h-full object-cover select-none" draggable={false} />
-                    ) : (
-                      <div className="w-full h-full grid place-items-center text-neutral-400 text-xs">Görsel yok</div>
-                    )}
-                  </div>
+                    <div className="aspect-square bg-gray-50 flex items-center justify-center p-0 relative">
+                      {Number(r.discount) > 0 && (
+                        <div className="absolute left-3 top-3 z-20 bg-red-600 text-white px-2 py-0.5 text-xs font-semibold rounded">-{r.discount}%</div>
+                      )}
+                      {rimg ? (
+                        <ProtectedImage src={rimg} alt={r.title || r.sku} className="block w-full h-full object-cover select-none no-download product-image" />
+                      ) : (
+                        <div className="w-full h-full grid place-items-center text-neutral-400 text-xs">Görsel yok</div>
+                      )}
+                    </div>
                   <div className="p-3">
                     <div className="text-xs text-neutral-500 mb-1">{r.sku}</div>
                     <div className="text-sm font-semibold line-clamp-2 min-h-[2.25rem] group-hover:underline">{r.title || r.sku}</div>
-                    <div className="mt-2 text-sm font-bold text-brand-orange">Teklif Al</div>
+                    <div className="mt-2 text-sm font-bold text-brand-orange">
+                      { (r.list_price || r.list_price === 0) ? (
+                          r.list_price === 0 ? (
+                            'Fiyat için teklif alınız'
+                          ) : Number(r.discount) > 0 ? (
+                            `${Math.round((r.list_price * (100 - (Number(r.discount) || 0))) / 100)} TL`
+                          ) : (
+                            `${r.list_price} TL`
+                          )
+                        ) : (
+                          'Teklif Al'
+                        )}
+                    </div>
                   </div>
                 </Link>
               );
@@ -758,24 +846,32 @@ export default function UrunDetay() {
   const [relatedLoading, setRelatedLoading] = useState(false);
 
   useEffect(() => {
-    const controller = new AbortController();
+    let mounted = true;
     setLoading(true);
-    setError("");
-
-    fetchProductBySku(sku, { signal: controller.signal })
-      .then((product) => {
-        console.log("Fetched product:", product);
-        console.log("SEO data:", product?.seo);
-        setP(product);
-      })
-      .catch((e) => {
-        if (e.name !== "AbortError") {
-          setError(e?.message || "Ürün yüklenemedi");
+    setError('');
+    setP(null);
+    (async () => {
+      try {
+        const { product, raw } = await fetchProductBySku(sku);
+        if (!mounted) return;
+        if (!product) {
+          // show backend message when available
+          const msg = raw && raw.error ? String(raw.error) : 'Ürün bulunamadı';
+          setError(msg);
+          setP(null);
+        } else {
+          setP(product);
         }
-      })
-      .finally(() => setLoading(false));
-
-    return () => controller.abort();
+      } catch (err) {
+        if (!mounted) return;
+        console.error('fetchProductBySku error', err);
+        setError(err?.message || 'Ürün verisi alınamadı');
+        setP(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false };
   }, [sku]);
 
   // Log product view: yalnızca ürün fetch edildikten sonra bir kez.
@@ -784,7 +880,7 @@ export default function UrunDetay() {
     if (!p?.sku) return;
     if (loggedViewRef.current === p.sku) return; // duplicate guard
     loggedViewRef.current = p.sku;
-    logProductView(p.sku).catch(() => {});
+  // analytics removed
    }, [p?.sku]);
 
   // Apply head/meta using centralized head manager when product is loaded
@@ -796,32 +892,39 @@ export default function UrunDetay() {
   }, [p]);
 
   useEffect(() => {
-    if (!p?.category_id) {
+    // Try to fetch related products using parent/child categories when available.
+    // Only bail out when we don't have any category info to query with.
+    const parent = p?.parent_category || undefined;
+    const child = p?.child_category || undefined;
+    if (!p && !parent && !child) {
       setRelated([]);
       return;
     }
+    if (!p?.category_id && !parent && !child) {
+      // no category info at all
+      setRelated([]);
+      return;
+    }
+
     const controller = new AbortController();
     setRelatedLoading(true);
-
-    fetchProducts(undefined, {
-      skip: 0,
-      limit: 8,
-      category_id: p.category_id,
-      signal: controller.signal,
-    })
-      .then((list) => {
-        const items = Array.isArray(list) ? list : [];
-        setRelated(
-          items.filter((it) => it.id !== p.id && it.sku !== p.sku).slice(0, 8)
-        );
-      })
-      .catch((e) => {
-        if (e.name !== "AbortError") setRelated([]);
-      })
-      .finally(() => setRelatedLoading(false));
-
-    return () => controller.abort();
-  }, [p?.category_id, p?.id, p?.sku]);
+    (async () => {
+      try {
+        // fetch products in same category (prefer parent/child if present)
+        const data = await fetchProducts({ parent, child, per_page: 8 });
+        if (controller.signal.aborted) return;
+        const items = data.items || [];
+        // exclude current product
+        const filtered = items.filter(it => (it.sku || it.id) !== (p.sku || p.id)).slice(0,6);
+        setRelated(filtered);
+      } catch (e) {
+        setRelated([]);
+      } finally {
+        if (!controller.signal.aborted) setRelatedLoading(false);
+      }
+    })();
+    return () => { controller.abort(); };
+  }, [p?.category_id, p?.parent_category, p?.child_category, p?.id, p?.sku]);
 
   // Content logic removed
 
@@ -854,7 +957,7 @@ export default function UrunDetay() {
 
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-10">
+    <div className="product-detail max-w-7xl mx-auto px-6 py-10">
       <div className="mb-4 text-sm text-neutral-600">
         <Link to="/urunler" className="hover:underline">
           Ürünler
@@ -870,8 +973,8 @@ export default function UrunDetay() {
             {p.title || p.sku}
           </h1>
           <div className="flex items-center gap-3 mb-4">
-            <StarRating size={16} />
-            <span className="text-sm text-neutral-600">5.0 Kalite Puanı</span>
+            <StarRating size={16} value={p.star_rating || 0} />
+            <span className="text-sm text-neutral-600">{p.star_rating ? `${Number(p.star_rating).toFixed(1)} Kalite Puanı` : 'Puan yok'}</span>
           </div>
           <ProductPrice product={p} />
           {p.description && (

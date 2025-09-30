@@ -7,16 +7,15 @@ import numpy as np
 
 #!/usr/bin/env python3
 # excel_tojson.py
-# api_first.xlsx dosyasını JSON'a çevirir. Varsayılan olarak tüm sayfaları dönüştürür.
+# api_first.xlsx dosyasını JSON'a çevirir. Artık parent kategori yok, sadece child_category ve subchild_category var. Varsayılan olarak tüm sayfaları dönüştürür.
 
 
 def df_to_records(df):
-    # Normalize missing values:
+    # Eksik değerleri normalize et:
     # - pandas NaN -> None
-    # - empty strings trimmed -> None
-    # - numpy scalar types -> python native
+    # - boş stringler kırpılır ve None yapılır
+    # - numpy tipleri -> python native
     df = df.where(pd.notnull(df), None)
-    # strip whitespace-only strings to None
     for col in df.select_dtypes(include=['object']).columns:
         df[col] = df[col].apply(lambda x: x.strip() if isinstance(x, str) else x)
         df[col] = df[col].apply(lambda x: None if x == '' else x)
@@ -25,13 +24,13 @@ def df_to_records(df):
     for row in df.to_dict(orient='records'):
         rec = {}
         for k, v in row.items():
-            # convert numpy types
+            # numpy tiplerini dönüştür
             if isinstance(v, np.generic):
                 val = v.item()
             else:
                 val = v
 
-            # Force missing image fields to None (JSON null)
+            # img2, img3, img4 alanları eksikse None yap
             if k in ('img2', 'img3', 'img4') and (val is None or (isinstance(val, float) and np.isnan(val))):
                 rec[k] = None
             else:

@@ -27,6 +27,14 @@ html, body { background: var(--bg-base); color: var(--text-primary); }
 /* Remove default scroll gap around pages on mobile */
 body {overscroll-behavior-y:none; -webkit-font-smoothing:antialiased;}
 
+/* Allow native pinch-to-zoom on images and main product containers.
+   Some components use touch handlers for swipe/drag; ensure these
+   elements don't block the browser's native pinch/zoom gesture. */
+.product-image, .products-grid, .product-detail, .product-detail * {
+	touch-action: auto; /* allow pinch, pan, zoom according to browser defaults */
+	-ms-touch-action: auto;
+}
+
 /* Auth wrapper edge-to-edge tweak (override) */
 .auth-wrapper {padding:0 !important; border-radius:0; background:linear-gradient(130deg,#262729,#1f1f20);} 
 .auth-shell {max-width:100% !important; border-radius:0;}
@@ -42,4 +50,30 @@ body {overscroll-behavior-y:none; -webkit-font-smoothing:antialiased;}
 
 /* Home hero remove outer white band */
 .hero-new {margin:0;}
+
+/* Scoped fixes for product detail page images to prevent overflow without changing global scaling */
+.product-detail .product-image {
+	max-width: 100%;
+	max-height: 100%;
+	/* prefer contain for detail page images to avoid visual overflow */
+	object-fit: contain !important;
+	display: block; /* avoid inline image whitespace issues */
+}
+
+/* Make product detail containers neutral/transparent so images don't appear "in a box" */
+.product-detail, .product-detail .product-gallery, .product-detail .product-image, .product-detail .product-gallery > div {
+	background: transparent !important;
+	border: none !important;
+	box-shadow: none !important;
+}
+
+/* If any rounded bg or lens overlay exists, ensure it's hidden on detail view */
+.product-detail .lens, .product-detail .product-lens, .product-detail .pointer-events-none {
+	display: none !important;
+}
+
+/* Ensure thumbnails / small images still behave */
+.product-detail .product-image.pointer-events-none {
+	object-fit: contain !important;
+}
 

@@ -1,3 +1,11 @@
+/.env
+/.env.local
+/php/config.php
+/node_modules
+/dist
+/build
+/.vite
+/.DS_Store
 # OS
 .DS_Store
 Thumbs.db

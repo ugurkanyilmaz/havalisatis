@@ -119,9 +119,10 @@ export default function HeroSlider({ onFirstShown }){
   };
 
   return (
-    <section className="relative overflow-hidden isolate">
+    <section className="relative overflow-hidden isolate -mt-16">
+      {/* Anniversary banner removed as requested */}
       <div
-        className="relative h-[560px] md:h-[600px]"
+        className="relative h-[600px] md:h-[710px] pt-16"
   // Otomatik geçiş her zaman devam etsin, mouse hover'da dursa bile
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -140,7 +141,7 @@ export default function HeroSlider({ onFirstShown }){
                   <img
                     src={s.image}
                     alt=""
-                    className="absolute inset-0 w-full h-full object-cover select-none"
+                    className="absolute inset-0 w-full h-full object-cover select-none no-download product-image"
                     style={{ objectPosition: (isMobile ? (s.imagePosMobile || s.imagePos) : s.imagePos) || '50% 50%' }}
                     draggable={false}
                   />

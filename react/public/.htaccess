@@ -1,0 +1,20 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # Internally rewrite old /php/* requests to /api/* so legacy frontend paths still work
+  RewriteCond %{REQUEST_URI} ^/php/(.*)$ [NC]
+  RewriteRule ^php/(.*)$ /api/$1 [L]
+
+  # Exclude API folder from rewrite (serve it directly)
+  RewriteCond %{REQUEST_URI} ^/api(/|$) [NC]
+  RewriteRule ^ - [L]
+  # Serve existing files directly
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Otherwise rewrite to index.html for SPA routing
+  RewriteRule ^ /index.html [L]
+</IfModule>
+
+# Prevent directory listing
+Options -Indexes
