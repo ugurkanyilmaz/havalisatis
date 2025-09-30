@@ -88,6 +88,7 @@ export default function Urunler() {
   const [total, setTotal] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef(null);
+  const totalRef = useRef(total);
   const productsRef = useRef(null);
   const scrollPendingRef = useRef(false);
   const location = useLocation();
@@ -152,9 +153,11 @@ export default function Urunler() {
   useEffect(() => {
     let cancelled = false;
     const doFetch = async () => {
+      console.debug(`[urunler] doFetch start -> page=${page}, perPage=${perPage}, q='${query}', parent='${selectedParent}', child='${selectedChild}'`);
       try {
         if (page > 1) setLoadingMore(true);
         const data = await fetchProducts({ parent: selectedParent, child: selectedChild, q: query, page, per_page: perPage });
+        console.debug(`[urunler] fetch response -> page=${page}, items=${(data.items||[]).length}, total=${data.total}`);
         if (cancelled) return;
         const items = data.items || [];
         setTotal(data.total || 0);
@@ -254,21 +257,27 @@ export default function Urunler() {
 
   // IntersectionObserver: observe sentinel to load next page
   useEffect(() => {
+    // keep a ref with the latest total so the observer callback can access it
+    totalRef.current = total;
     if (!sentinelRef.current) return;
     const observer = new IntersectionObserver(entries => {
       for (const entry of entries) {
         if (entry.isIntersecting) {
-          const totalPages = Math.ceil((total || 0) / perPage);
-          if (page < totalPages) {
-            setPage(p => p + 1);
-          }
+          console.debug('[urunler] sentinel intersecting -> currentPage=', page, 'total=', totalRef.current);
+          // use functional update to avoid stale `page` closure and read latest total from ref
+          setPage(prev => {
+            const totalPages = Math.ceil((totalRef.current || 0) / perPage);
+            console.debug('[urunler] decide next page -> prev=', prev, 'totalPages=', totalPages);
+            if (prev < totalPages) return prev + 1;
+            return prev;
+          });
         }
       }
     }, { root: null, rootMargin: '400px', threshold: 0.1 });
 
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
-  }, [sentinelRef.current, total, perPage, page]);
+  }, [sentinelRef.current, perPage, total]);
 
   // When products update, perform pending scroll (for mobile) if requested
   useEffect(() => {
@@ -412,7 +421,7 @@ export default function Urunler() {
             </div>
 
             {/* Infinite scroll sentinel and loader */}
-            <div ref={sentinelRef} />
+            <div ref={sentinelRef} style={{ minHeight: 1 }} />
             <div className="mt-6 flex items-center justify-center gap-3">
               {loadingMore ? (
                 <div className="text-sm text-neutral-600">Yükleniyor...</div>
