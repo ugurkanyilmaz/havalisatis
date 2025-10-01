@@ -26,7 +26,19 @@ class DB {
             $pass = $config['password'] ?? '';
             $charset = $config['charset'] ?? 'utf8mb4';
             $dsn = "mysql:host={$host};port={$port};dbname={$db};charset={$charset}";
-            $this->pdo = new PDO($dsn, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+            
+            // Optimized PDO options for better performance and stability
+            $options = [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+                PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
+                PDO::ATTR_PERSISTENT => true, // Use persistent connections
+                PDO::MYSQL_ATTR_INIT_COMMAND => "SET sql_mode='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'",
+                PDO::ATTR_TIMEOUT => 10, // Connection timeout
+            ];
+            
+            $this->pdo = new PDO($dsn, $user, $pass, $options);
             $this->driver = 'mysql';
             return;
         }

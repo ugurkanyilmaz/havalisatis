@@ -1,6 +1,61 @@
+# Performance optimizations
+<IfModule mod_deflate.c>
+  # Enable compression
+  AddOutputFilterByType DEFLATE text/plain
+  AddOutputFilterByType DEFLATE text/html
+  AddOutputFilterByType DEFLATE text/xml
+  AddOutputFilterByType DEFLATE text/css
+  AddOutputFilterByType DEFLATE text/javascript
+  AddOutputFilterByType DEFLATE application/xml
+  AddOutputFilterByType DEFLATE application/xhtml+xml
+  AddOutputFilterByType DEFLATE application/rss+xml
+  AddOutputFilterByType DEFLATE application/javascript
+  AddOutputFilterByType DEFLATE application/json
+  AddOutputFilterByType DEFLATE application/x-javascript
+  
+  # Handle browser-specific compression
+  BrowserMatch ^Mozilla/4 gzip-only-text/html
+  BrowserMatch ^Mozilla/4\.0[678] no-gzip
+  BrowserMatch \bMSIE !no-gzip !gzip-only-text/html
+</IfModule>
+
+# Cache control for static assets
+<IfModule mod_expires.c>
+  ExpiresActive on
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+  ExpiresByType image/png "access plus 1 month"
+  ExpiresByType image/jpg "access plus 1 month"
+  ExpiresByType image/jpeg "access plus 1 month"
+  ExpiresByType image/gif "access plus 1 month"
+  ExpiresByType image/webp "access plus 1 month"
+  ExpiresByType image/svg+xml "access plus 1 month"
+  ExpiresByType application/json "access plus 5 minutes"
+</IfModule>
+
+# Mobile optimization headers
+<IfModule mod_headers.c>
+  # Force latest IE rendering engine
+  Header set X-UA-Compatible "IE=edge"
+  
+  # Mobile viewport
+  Header set X-Mobile-Optimized "width"
+  
+  # Security headers
+  Header always set X-Content-Type-Options nosniff
+  Header always set X-Frame-Options DENY
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  
+  # Cache control for API responses
+  <FilesMatch "\.(php)$">
+    Header set Cache-Control "public, max-age=300"
+  </FilesMatch>
+</IfModule>
+
 ### SPA rewrite with API/PHP exclusions
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  
   # Internally rewrite old /php/* requests to /api/* so legacy frontend paths still work
   RewriteCond %{REQUEST_URI} ^/php/(.*)$ [NC]
   RewriteRule ^php/(.*)$ /api/$1 [L]
@@ -17,5 +72,8 @@
   # Otherwise rewrite to SPA index
   RewriteRule ^ /index.html [L]
 </IfModule>
+
+# Prevent directory listing
+Options -Indexes
 
 # Fallback: if mod_rewrite not available, do nothing here.

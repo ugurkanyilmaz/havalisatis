@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/sanitize.php';
+require_once __DIR__ . '/cache_helper.php';
 
 // Helper: detect transient sqlite/PDO errors that may succeed if retried
 function is_transient_db_error($e) {
@@ -21,8 +22,40 @@ function products_log($msg) {
 }
 // Always return JSON only
 header('Content-Type: application/json; charset=utf-8');
-$db = get_db();
-$pdo = $db->getPdo();
+
+// Enable GZIP compression for better performance
+if (!ob_start('ob_gzhandler')) {
+    ob_start();
+}
+
+// Cache control headers
+header('Cache-Control: public, max-age=300'); // 5 minutes
+header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 300) . ' GMT');
+
+// Set script timeout for longer operations
+set_time_limit(30);
+
+// Initialize DB with retry mechanism
+$maxDbRetries = 3;
+$db = null;
+$pdo = null;
+
+for ($dbRetry = 1; $dbRetry <= $maxDbRetries; $dbRetry++) {
+    try {
+        $db = get_db();
+        $pdo = $db->getPdo();
+        break;
+    } catch (Exception $e) {
+        if ($dbRetry === $maxDbRetries) {
+            http_response_code(503);
+            echo json_encode(['error' => 'Database connection failed', 'retry_after' => 10], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        usleep(500000); // 0.5 seconds
+    }
+}
+
+$cache = get_cache();
 
 // Helpers (defined once, not inside conditionals)
 function normalize_img_url($s) {
@@ -53,6 +86,25 @@ $sku = isset($_GET['sku']) ? clean_sku($_GET['sku']) : null;
 $page = clean_int(isset($_GET['page']) ? $_GET['page'] : 1, 1, 1000, 1);
 $per_page = clean_int(isset($_GET['per_page']) ? $_GET['per_page'] : 20, 1, 200, 20);
 $offset = ($page - 1) * $per_page;
+
+// Generate cache key for current request
+$cacheKey = SimpleCache::generateCacheKey([
+    'parent' => $parent,
+    'child' => $child,
+    'q' => $q,
+    'sku' => $sku,
+    'page' => $page,
+    'per_page' => $per_page
+]);
+
+// Try to get from cache first (except for single SKU lookups which are fast)
+if (!$sku) {
+    $cachedResult = $cache->get($cacheKey);
+    if ($cachedResult !== null) {
+        echo json_encode($cachedResult, JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
 
 // SKU lookup: return a single JSON document and exit early
 if ($sku) {
@@ -298,7 +350,17 @@ for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
     }
     unset($it);
 
-        echo json_encode(['total' => $total, 'page' => $page, 'per_page' => $per_page, 'items' => $items], JSON_UNESCAPED_UNICODE);
+        $result = ['total' => $total, 'page' => $page, 'per_page' => $per_page, 'items' => $items];
+        
+        // Cache the result for 5 minutes (except for search queries which change frequently)
+        if (!$q || strlen($q) < 3) {
+            $cache->set($cacheKey, $result, 300);
+        } else {
+            // Cache search results for shorter time
+            $cache->set($cacheKey, $result, 60);
+        }
+        
+        echo json_encode($result, JSON_UNESCAPED_UNICODE);
         // success -> break retry loop
         break;
     } catch (Exception $e) {
