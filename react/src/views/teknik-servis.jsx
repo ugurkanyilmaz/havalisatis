@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useEffect } from 'react';
-import { setHomeHead } from '../lib/head_manager.js';
+import { setHomeHead, ENV_SITE_URL } from '../lib/head_manager.js';
 
 export default function TeknikServis(){
   useEffect(() => {
@@ -35,11 +35,13 @@ export default function TeknikServis(){
         head.appendChild(metaOgType);
 
         // JSON-LD graph: LocalBusiness + Service
-        const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : undefined;
+        // Use ENV_SITE_URL so JSON-LD never points to localhost in dev
+        const origin = ENV_SITE_URL;
         const localBusiness = {
           '@type': 'LocalBusiness',
           name: 'Keten Teknik Servis',
           '@id': origin ? `${origin}#organization` : undefined,
+          url: origin || undefined,
           telephone: ['+90 541 452 60 58', '+90 262 643 43 39'],
           email: 'info@ketenpnomatik.com.tr',
           address: {

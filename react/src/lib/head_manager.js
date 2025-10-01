@@ -2,10 +2,12 @@
 // Vite env erişimi (import.meta.env) üzerinden; undefined ise güvenli default.
 const VENV = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : {};
 export const ENV_SITE_NAME = VENV.VITE_SITE_NAME || 'Havalı Endüstri';
-// Site URL: prefer explicit env; if missing, avoid using localhost as canonical base
+// Site URL: prefer explicit env; if missing, default to live domain (never localhost) to avoid leaking dev URLs
 const runtimeOrigin = (typeof window !== 'undefined') ? window.location.origin : '';
 const isLocalhost = runtimeOrigin.includes('localhost') || runtimeOrigin.startsWith('http://127.0.0.1') || runtimeOrigin.startsWith('http://0.0.0.0');
-export const ENV_SITE_URL = (VENV.VITE_SITE_URL && String(VENV.VITE_SITE_URL).replace(/\/$/, '')) || (!isLocalhost && runtimeOrigin ? runtimeOrigin.replace(/\/$/, '') : 'https://example.com');
+const PROD_FALLBACK = 'https://havalielaletlerisatis.com';
+export const ENV_SITE_URL = (VENV.VITE_SITE_URL && String(VENV.VITE_SITE_URL).replace(/\/$/, ''))
+  || (!isLocalhost && runtimeOrigin ? runtimeOrigin.replace(/\/$/, '') : PROD_FALLBACK);
 export const ENV_DEFAULT_CURRENCY = VENV.VITE_DEFAULT_CURRENCY || 'TRY';
 export const ENV_DEFAULT_LOCALE = VENV.VITE_DEFAULT_LOCALE || 'tr-TR';
 export const ENV_TWITTER_SITE = VENV.VITE_TWITTER_SITE || '@site';
@@ -46,6 +48,17 @@ function canonicalFromEnv(url){
     const u = new URL(url);
     return base + u.pathname + u.search;
   } catch { return null; }
+}
+
+// Make a URL absolute using ENV_SITE_URL when needed (for og:image, JSON-LD images, etc.)
+function toAbsoluteUrl(u){
+  if(!u) return u;
+  const s = String(u).trim();
+  if(!s) return s;
+  if(/^https?:\/\//i.test(s)) return s; // already absolute
+  if(s.startsWith('//')) return (ENV_SITE_URL.startsWith('https') ? 'https:' : 'http:') + s;
+  if(s.startsWith('/')) return ENV_SITE_URL.replace(/\/$/, '') + s;
+  return s;
 }
 
 function getProductImages(p){
@@ -135,7 +148,7 @@ export function buildProductHead(product, options = {}) {
   const features = parseFeatures(p);
   const keywords = buildKeywords(p, features);
   const localeNormalized = (locale || 'tr-TR').replace('_','-');
-  const ogImage = primaryImage || (images.length ? images[0] : undefined);
+  const ogImage = toAbsoluteUrl(primaryImage || (images.length ? images[0] : undefined));
   const twitterCard = ogImage ? 'summary_large_image' : 'summary';
 
   // Price computation: mirror UI logic (list_price + discount)
@@ -155,7 +168,7 @@ export function buildProductHead(product, options = {}) {
     '@type': 'Product',
     '@id': canonical ? `${canonical}#product` : undefined,
     name: p?.title || p?.sku || baseTitle,
-    image: images.length ? images : undefined,
+    image: images.length ? images.map(toAbsoluteUrl) : undefined,
     description: schemaDescription || undefined,
     sku: p?.sku || undefined,
     url: canonical || undefined,
@@ -181,7 +194,7 @@ export function buildProductHead(product, options = {}) {
     itemListElement: [
       { '@type': 'ListItem', position: 1, name: 'Ana Sayfa', item: ENV_SITE_URL },
       { '@type': 'ListItem', position: 2, name: 'Ürünlerimiz', item: ENV_SITE_URL + '/urunler' },
-      { '@type': 'ListItem', position: 3, name: p?.title || p?.sku || 'Ürün', item: canonical || undefined },
+      { '@type': 'ListItem', position: 3, name: p?.title || p?.sku || 'Ürün', item: canonical || (ENV_SITE_URL + (new URL(url).pathname)) },
     ],
   };
 
@@ -192,7 +205,8 @@ export function buildProductHead(product, options = {}) {
     '@id': ENV_SITE_URL + '#organization',
     name: siteName,
     url: ENV_SITE_URL,
-    logo: ENV_SITE_URL + '/logo.png', // logonun tam yolu
+  // Use the actual site logo location
+  logo: ENV_SITE_URL + '/weblogo.jpg',
     contactPoint: [{
       '@type': 'ContactPoint',
       telephone: '+90-532-000-0000',
@@ -413,7 +427,7 @@ export function setHomeHead(options = {}) {
     '@type': 'Organization',
     name: ENV_SITE_NAME,
     url: ENV_SITE_URL,
-    logo: ENV_SITE_URL + '/logo.png'
+    logo: ENV_SITE_URL + '/weblogo.jpg'
   };
   const script = document.createElement('script');
   script.type = 'application/ld+json';

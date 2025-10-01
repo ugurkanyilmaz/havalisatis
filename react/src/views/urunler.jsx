@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import StarRating from "../components/common/StarRating.jsx";
+import { formatPriceTL } from "../lib/format.js";
 import ProtectedImage from "../components/ProtectedImage.jsx";
 import { fetchCategories, fetchProducts, fetchTags } from "../lib/api_calls.js";
 
@@ -48,11 +49,11 @@ function ProductCard({ p }) {
               <div className="text-sm font-semibold text-neutral-900">Fiyat için teklif alınız</div>
             ) : p.discount > 0 ? (
               <>
-                <div className="text-sm text-neutral-500 line-through">{p.list_price} TL</div>
-                <div className="text-sm font-semibold text-brand-orange">{Math.round((p.list_price * (100 - (p.discount || 0))) / 100)} TL</div>
+                <div className="text-sm text-neutral-500 line-through">{formatPriceTL(p.list_price)}</div>
+                <div className="text-sm font-semibold text-brand-orange">{formatPriceTL(Math.round((p.list_price * (100 - (p.discount || 0))) / 100))}</div>
               </>
             ) : (
-              <div className="text-sm font-semibold text-neutral-900">{p.list_price} TL</div>
+              <div className="text-sm font-semibold text-neutral-900">{formatPriceTL(p.list_price)}</div>
             )
           ) : null}
         </div>

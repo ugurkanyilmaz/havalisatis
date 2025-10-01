@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import StarRating from "../components/common/StarRating.jsx";
 import ProtectedImage from "../components/ProtectedImage.jsx";
 import { setProductHead, clearHead } from "../lib/head_manager.js";
+import { formatPriceTL } from "../lib/format.js";
 import { fetchProductBySku, fetchProducts } from "../lib/api_calls.js";
 
 /* -------------------- Helpers -------------------- */
@@ -301,7 +302,7 @@ function ProductGallery({ product }) {
                 aria-label={`Görsel ${i+1}`}
               >
                   <div className="w-full h-full bg-gray-50 grid place-items-center">
-                    <ProtectedImage src={u} alt="thumb" className="w-full h-full object-contain no-download product-image" style={{ backgroundSize: 'contain', backgroundPosition: 'center' }} />
+                    <ProtectedImage src={u} alt={product?.title || product?.sku || 'ürün görseli'} className="w-full h-full object-contain no-download product-image" style={{ backgroundSize: 'contain', backgroundPosition: 'center' }} />
                   </div>
               </button>
             ))}
@@ -412,7 +413,7 @@ function ProductGallery({ product }) {
               aria-label={`Görsel ${i+1}`}
             >
               <div className="w-full h-full bg-gray-50 grid place-items-center">
-                <ProtectedImage src={u} alt="thumb" className="w-full h-full object-contain no-download product-image" style={{ backgroundSize: 'contain', backgroundPosition: 'center' }} />
+                <ProtectedImage src={u} alt={product?.title || product?.sku || 'ürün görseli'} className="w-full h-full object-contain no-download product-image" style={{ backgroundSize: 'contain', backgroundPosition: 'center' }} />
               </div>
             </button>
           ))}
@@ -559,12 +560,12 @@ function ProductPrice({ product }) {
               ) : (
                 <>
                   {discountPct > 0 ? (
-                    <div className="text-base text-neutral-500 line-through">{listPrice} TL</div>
+                    <div className="text-base text-neutral-500 line-through">{formatPriceTL(listPrice)}</div>
                   ) : (
-                    <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-neutral-900">{listPrice} TL</div>
+                    <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-neutral-900">{formatPriceTL(listPrice)}</div>
                   )}
                   {discountPct > 0 && (
-                    <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-brand-orange">{discounted} TL</div>
+                    <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-brand-orange">{formatPriceTL(discounted)}</div>
                   )}
                 </>
               )
@@ -592,7 +593,7 @@ function ProductPrice({ product }) {
               <span className="font-semibold text-sm">Satın Al</span>
             </div>
             <div className="text-xs opacity-90 flex items-center gap-2">
-              <span className="font-medium">{listPrice === 0 ? 'Fiyat için teklif alınız' : (listPrice ? (discountPct>0 ? `${discounted} TL` : `${listPrice} TL`) : 'Teklif Al')}</span>
+              <span className="font-medium">{listPrice === 0 ? 'Fiyat için teklif alınız' : (listPrice ? (discountPct>0 ? formatPriceTL(discounted) : formatPriceTL(listPrice)) : 'Teklif Al')}</span>
             </div>
           </a>
           <a
@@ -737,9 +738,9 @@ function RelatedSlider({ items }) {
                           r.list_price === 0 ? (
                             'Fiyat için teklif alınız'
                           ) : Number(r.discount) > 0 ? (
-                            `${Math.round((r.list_price * (100 - (Number(r.discount) || 0))) / 100)} TL`
+                            formatPriceTL(Math.round((r.list_price * (100 - (Number(r.discount) || 0))) / 100))
                           ) : (
-                            `${r.list_price} TL`
+                            formatPriceTL(r.list_price)
                           )
                         ) : (
                           'Teklif Al'

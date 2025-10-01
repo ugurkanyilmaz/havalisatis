@@ -36,7 +36,8 @@ function normalize_img_url($s) {
     }
     if (strpos($s, '/') === 0) {
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        // Fallback to production host to avoid leaking localhost in JSON responses
+        $host = $_SERVER['HTTP_HOST'] ?? 'havalielaletlerisatis.com';
         return $scheme . '://' . $host . $s;
     }
     if (preg_match('#^[^\s/]+\.[^\s/]+#', $s)) {

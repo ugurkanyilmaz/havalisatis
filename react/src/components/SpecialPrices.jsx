@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import ProtectedImage from './ProtectedImage.jsx';
+import { formatPriceTL } from '../lib/format.js';
 // Swiper
 // SpecialPrices uses a marquee-style strip; no Swiper required here
 
@@ -35,7 +36,7 @@ function SmallTile({ item, active, onClick }) {
 						{disc > 0 && (
 							<span className="inline-flex items-center justify-center bg-brand-orange/10 text-brand-orange text-xs font-semibold px-2 py-1 rounded">-%{disc}</span>
 						)}
-						<div className="text-lg text-brand-orange font-extrabold">{list === 0 ? 'Fiyat için teklif alınız' : (discounted ? discounted + ' TL' : 'Teklif Al')}</div>
+						<div className="text-lg text-brand-orange font-extrabold">{list === 0 ? 'Fiyat için teklif alınız' : (discounted ? formatPriceTL(discounted) : 'Teklif Al')}</div>
 					</div>
 				</div>
 			</div>
