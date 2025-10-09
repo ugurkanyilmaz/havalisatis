@@ -46,7 +46,7 @@ export default function TeknikServis(){
           email: 'info@ketenpnomatik.com.tr',
           address: {
             '@type': 'PostalAddress',
-            streetAddress: 'Yenikent, Mehmet Akif Ersoy Cad. No:52',
+            streetAddress: 'Osman Yılmaz Mah. Mehmet Akif Ersoy Cad. No:52',
             addressLocality: 'Gebze',
             postalCode: '41400',
             addressRegion: 'Kocaeli',

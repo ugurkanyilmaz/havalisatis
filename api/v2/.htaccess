@@ -1,0 +1,74 @@
+# ================================
+# API v2 - .htaccess Configuration
+# ================================
+
+# Enable rewrite engine
+RewriteEngine On
+
+# Security headers
+<IfModule mod_headers.c>
+    # CORS headers (already in bootstrap.php, but backup here)
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+    Header always set Access-Control-Max-Age "3600"
+    
+    # Security headers
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Cache control for static files
+    <FilesMatch "\.(json)$">
+        Header set Cache-Control "public, max-age=60, must-revalidate"
+    </FilesMatch>
+</IfModule>
+
+# GZIP compression for API responses
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+</IfModule>
+
+# PHP settings override
+<IfModule mod_php.c>
+    php_value memory_limit 256M
+    php_value max_execution_time 30
+    php_value post_max_size 20M
+    php_value upload_max_filesize 10M
+</IfModule>
+
+# Directory listing protection
+Options -Indexes
+
+# Protect sensitive files
+<FilesMatch "^(config|bootstrap|\.env)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Allow access to public endpoints only
+<FilesMatch "\.(php|json)$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
+
+# Block direct access to cache directory
+<DirectoryMatch "cache">
+    Order allow,deny
+    Deny from all
+</DirectoryMatch>
+
+# Block access to core/middleware/controllers directories
+RedirectMatch 403 ^/api/v2/(core|middleware|controllers|config)/
+
+# Custom error pages (optional)
+# ErrorDocument 404 /api/v2/error.php?code=404
+# ErrorDocument 500 /api/v2/error.php?code=500
+# ErrorDocument 503 /api/v2/error.php?code=503
+
+# Prevent httpd.conf override (cPanel protection)
+<IfModule mod_suphp.c>
+    suPHP_ConfigPath /home/u2415836/public_html/api/v2
+</IfModule>

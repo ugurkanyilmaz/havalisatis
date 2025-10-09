@@ -1,21 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import ProtectedImage from './ProtectedImage.jsx';
+import { normalizeImageUrl } from '../lib/normalize.js';
 import { formatPriceTL } from '../lib/format.js';
 // Swiper
 // SpecialPrices uses a marquee-style strip; no Swiper required here
 
-function normalizeImgUrl(s) {
-	if (!s) return null;
-	s = String(s).trim();
-	if (/^https?:\/\//i.test(s)) return s;
-	if (/^\/\//.test(s)) return window.location.protocol + s;
-	if (/^[^\s\/]+\.[^\s\/]+/.test(s)) return 'https://' + s;
-	return s;
-}
 
 function SmallTile({ item, active, onClick }) {
-	const img = normalizeImgUrl(item.main_img || item.img1 || '');
+	const img = normalizeImageUrl(item.main_img || item.img1 || '');
 
 	// compute discounted price if discount present
 	const rawList = item.list_price;

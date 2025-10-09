@@ -1,4 +1,3 @@
-// src/views/Home.jsx
 import React from 'react';
 import proffesionalImg from '../components/proffesional.jpg';
 import endustryImg from '../components/endustry.jpg';
@@ -6,7 +5,7 @@ import senolbeyImg from '../components/senolbey.jpg';
 import HeroSlider from '../components/HeroSlider.jsx';
 import ProtectedImage from '../components/ProtectedImage.jsx';
 import StarRating from '../components/common/StarRating.jsx';
-import { fetchHome, fetchCategories, fetchProducts } from '../lib/api_calls.js';
+import { fetchHome, fetchCategories, fetchProducts, fetchRandomSlots } from '../lib/api_calls.js';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 // Swiper
@@ -193,6 +192,7 @@ function HomeProductCard({p}){
 }
 
 export default function Home() {
+  console.log('[home] Home component render');
   // state for dynamic home lists
   const [randCategory1, setRandCategory1] = useState(null);
   const [randItems1, setRandItems1] = useState([]);
@@ -202,6 +202,9 @@ export default function Home() {
   const [randItems2, setRandItems2] = useState([]);
   const [randLoading2, setRandLoading2] = useState(true);
   const [randError2, setRandError2] = useState('Veri alınamadı');
+  // refs to skip the per-category fetch effects when we perform a combined fetch
+  const skipRandFetch1 = useRef(false);
+  const skipRandFetch2 = useRef(false);
   const [popular, setPopular] = useState([]);
   const [popLoading, setPopLoading] = useState(true);
   const [popError, setPopError] = useState('');
@@ -218,60 +221,130 @@ export default function Home() {
       setPopError('Veri alınamadı');
     }).finally(()=> setPopLoading(false));
 
-    // fetch categories and pick 2 random child categories for the "Keşfet" sliders
-    fetchCategories().then(cats => {
-      // Build objects so we have both display name and the child key used by the products API
-      const childCats = cats.filter(x => x.child_category).map(x => ({ name: x.child_category, child: x.child_category, parent: x.parent_category }));
-      if (childCats.length === 0) return;
-      // pick two distinct randoms
-      const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-      let a = pick(childCats);
-      let b = pick(childCats);
-      let tries = 0;
-      while (b && a && b.child === a.child && tries < 8 && childCats.length > 1) { b = pick(childCats); tries++; }
+    // Try a single request that returns two slots (server-side optimization)
+    fetchRandomSlots().then(data => {
+      if (data && (data.slot1 || data.slot2)) {
+        if (data.slot1) {
+          setRandCategory1({ parent: data.slot1.category.parent, child: data.slot1.category.child });
+          setRandItems1(data.slot1.items || []);
+          setRandLoading1(false); setRandError1('');
+          console.log('[home] initial slots: set slot1 from random_slots', data.slot1.category);
+        }
+        if (data.slot2) {
+          setRandCategory2({ parent: data.slot2.category.parent, child: data.slot2.category.child });
+          setRandItems2(data.slot2.items || []);
+          setRandLoading2(false); setRandError2('');
+          console.log('[home] initial slots: set slot2 from random_slots', data.slot2.category);
+        }
+        return;
+      }
 
-      if (a) {
-        setRandCategory1(a);
-        setRandLoading1(true); setRandError1('');
-        // pass parent as well so backend can apply tolerant parent+child filtering
-        fetchProducts({ parent: a.parent, child: a.child, per_page: 12 }).then(d => {
-          if (d && Array.isArray(d.items) && d.items.length > 0) {
-            setRandItems1(d.items || []);
-          } else {
-            // Fallback: fetch by parent (larger page) and perform tolerant client-side child match
-            fetchProducts({ parent: a.parent, per_page: 200 }).then(dd => {
-              const norm = (s) => (s || '').toString().toLowerCase().replace(/[ -\u007F]/g, ch => ch).replace(/[şŞ]/g,'s').replace(/[ıİ]/g,'i').replace(/[ğĞ]/g,'g').replace(/[üÜ]/g,'u').replace(/[öÖ]/g,'o').replace(/[çÇ]/g,'c').replace(/[^a-z0-9]/g,'');
-              const want = norm(a.child);
-              const filtered = (dd.items || []).filter(it => {
-                const child = it.child_category || '';
-                return norm(child).includes(want) || norm(child).replace(/\s+/g,'').includes(want.replace(/\s+/g,''));
-              });
-              setRandItems1(filtered.slice(0, 12));
-            }).catch(() => setRandItems1([])).finally(()=>{});
-          }
-        }).catch(() => setRandItems1([])).finally(()=>setRandLoading1(false));
-      }
-      if (b) {
-        setRandCategory2(b);
-        setRandLoading2(true); setRandError2('');
-        fetchProducts({ parent: b.parent, child: b.child, per_page: 12 }).then(d => {
-          if (d && Array.isArray(d.items) && d.items.length > 0) {
-            setRandItems2(d.items || []);
-          } else {
-            fetchProducts({ parent: b.parent, per_page: 200 }).then(dd => {
-              const norm = (s) => (s || '').toString().toLowerCase().replace(/[ -\u007F]/g, ch => ch).replace(/[şŞ]/g,'s').replace(/[ıİ]/g,'i').replace(/[ğĞ]/g,'g').replace(/[üÜ]/g,'u').replace(/[öÖ]/g,'o').replace(/[çÇ]/g,'c').replace(/[^a-z0-9]/g,'');
-              const want = norm(b.child);
-              const filtered = (dd.items || []).filter(it => {
-                const child = it.child_category || '';
-                return norm(child).includes(want) || norm(child).replace(/\s+/g,'').includes(want.replace(/\s+/g,''));
-              });
-              setRandItems2(filtered.slice(0, 12));
-            }).catch(() => setRandItems2([])).finally(()=>{});
-          }
-        }).catch(() => setRandItems2([])).finally(()=>setRandLoading2(false));
-      }
-    }).catch(() => {});
+      // Fallback to legacy flow if random_slots isn't available
+      fetchCategories().then(cats => {
+        console.log('[home] fetched categories count', Array.isArray(cats) ? cats.length : typeof cats, Array.isArray(cats) ? cats.slice(0,3) : cats);
+        const childCats = cats.filter(x => x.child_category).map(x => ({ name: x.child_category, child: x.child_category, parent: x.parent_category }));
+        if (childCats.length === 0) return;
+        const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+        let a = pick(childCats);
+        let b = pick(childCats);
+        let tries = 0;
+        while (b && a && b.child === a.child && tries < 8 && childCats.length > 1) { b = pick(childCats); tries++; }
+
+        if (a) { setRandCategory1(a); setRandLoading1(true); setRandError1(''); console.log('[home] set randCategory1', a); }
+        if (b) { setRandCategory2(b); setRandLoading2(true); setRandError2(''); console.log('[home] set randCategory2', b); }
+      }).catch((err) => { console.error('[home] fetchCategories error', err); });
+    }).catch((err) => {
+      console.warn('[home] fetchRandomSlots failed, falling back to categories', err);
+      // fallback to categories path
+      fetchCategories().then(cats => {
+        console.log('[home] fetched categories count', Array.isArray(cats) ? cats.length : typeof cats, Array.isArray(cats) ? cats.slice(0,3) : cats);
+        const childCats = cats.filter(x => x.child_category).map(x => ({ name: x.child_category, child: x.child_category, parent: x.parent_category }));
+        if (childCats.length === 0) return;
+        const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+        let a = pick(childCats);
+        let b = pick(childCats);
+        let tries = 0;
+        while (b && a && b.child === a.child && tries < 8 && childCats.length > 1) { b = pick(childCats); tries++; }
+
+        if (a) { setRandCategory1(a); setRandLoading1(true); setRandError1(''); console.log('[home] set randCategory1', a); }
+        if (b) { setRandCategory2(b); setRandLoading2(true); setRandError2(''); console.log('[home] set randCategory2', b); }
+      }).catch((err) => { console.error('[home] fetchCategories error', err); });
+    });
   }, []);
+
+  // When randCategory1 changes, fetch products for slot 1
+  useEffect(() => {
+    console.log('[home] useEffect randCategory1 triggered', { randCategory1, skip: skipRandFetch1.current });
+    if (!randCategory1) return;
+    if (skipRandFetch1.current) return; // combined fetch already handled this slot
+    let mounted = true;
+    (async () => {
+      setRandLoading1(true);
+      setRandError1('');
+      try {
+        const products = await fetchProducts({ parent: randCategory1.parent, child: randCategory1.child, per_page: 12 }).catch(() => ({ items: [] }));
+        if (!mounted) return;
+        if (products && Array.isArray(products.items) && products.items.length > 0) {
+          setRandItems1(products.items);
+        } else {
+          const byParent = await fetchProducts({ parent: randCategory1.parent, per_page: 200 }).catch(() => ({ items: [] }));
+          if (!mounted) return;
+          const norm = (s) => (s || '').toString().toLowerCase().replace(/[şŞ]/g,'s').replace(/[ıİ]/g,'i').replace(/[ğĞ]/g,'g').replace(/[üÜ]/g,'u').replace(/[öÖ]/g,'o').replace(/[çÇ]/g,'c').replace(/[^a-z0-9]/g,'');
+          const want = norm(randCategory1.child);
+          const filtered = (byParent.items || []).filter(it => {
+            const child = it.child_category || '';
+            return norm(child).includes(want) || norm(child).replace(/\s+/g,'').includes(want.replace(/\s+/g,''));
+          });
+          setRandItems1(filtered.slice(0, 12));
+        }
+      } catch (err) {
+        if (mounted) {
+          setRandItems1([]);
+          setRandError1('Ürünler yüklenemedi');
+        }
+      } finally {
+        if (mounted) setRandLoading1(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [randCategory1]);
+
+  // When randCategory2 changes, fetch products for slot 2
+  useEffect(() => {
+    console.log('[home] useEffect randCategory2 triggered', { randCategory2, skip: skipRandFetch2.current });
+    if (!randCategory2) return;
+    if (skipRandFetch2.current) return; // combined fetch already handled this slot
+    let mounted = true;
+    (async () => {
+      setRandLoading2(true);
+      setRandError2('');
+      try {
+        const products = await fetchProducts({ parent: randCategory2.parent, child: randCategory2.child, per_page: 12 }).catch(() => ({ items: [] }));
+        if (!mounted) return;
+        if (products && Array.isArray(products.items) && products.items.length > 0) {
+          setRandItems2(products.items);
+        } else {
+          const byParent = await fetchProducts({ parent: randCategory2.parent, per_page: 200 }).catch(() => ({ items: [] }));
+          if (!mounted) return;
+          const norm = (s) => (s || '').toString().toLowerCase().replace(/[şŞ]/g,'s').replace(/[ıİ]/g,'i').replace(/[ğĞ]/g,'g').replace(/[üÜ]/g,'u').replace(/[öÖ]/g,'o').replace(/[çÇ]/g,'c').replace(/[^a-z0-9]/g,'');
+          const want = norm(randCategory2.child);
+          const filtered = (byParent.items || []).filter(it => {
+            const child = it.child_category || '';
+            return norm(child).includes(want) || norm(child).replace(/\s+/g,'').includes(want.replace(/\s+/g,''));
+          });
+          setRandItems2(filtered.slice(0, 12));
+        }
+      } catch (err) {
+        if (mounted) {
+          setRandItems2([]);
+          setRandError2('Ürünler yüklenemedi');
+        }
+      } finally {
+        if (mounted) setRandLoading2(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [randCategory2]);
 
   // load random slot (1 or 2)
   async function loadRandomSlot(slot = 1) {

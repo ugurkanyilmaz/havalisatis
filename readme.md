@@ -6,7 +6,7 @@ Lightweight PHP API + React SPA for a small e-commerce/catalog site.
 
 This repository contains two main parts:
 
-- `api/` — PHP backend (single-file endpoints) that serves product data and provides a minimal admin interface for uploads and management. It can run with SQLite (local dev) or MySQL (production).
+- `api/` — PHP backend (single-file endpoints) that serves product data and provides a minimal admin interface for uploads and management. Production should use MySQL; SQLite support in v2 is deprecated and kept only for legacy local testing.
 - `react/` — React single-page application (Vite) that consumes the API and provides the storefront UI.
 
 The project was crafted for easy local development and simple deployment to a PHP-enabled host.
@@ -15,7 +15,7 @@ The project was crafted for easy local development and simple deployment to a PH
 
 - `api/` — PHP API and admin scripts
   - `config.php` — active config (DO NOT commit credentials)
-  - `products.db` — SQLite database (optional for local dev)
+  - `products.db` — SQLite database (legacy, optional for local dev; deprecated)
   - `init_db.php`, `upload.php`, `products.php`, etc. — API endpoints and admin helpers
 - `react/` — frontend (Vite + React)
   - `src/` — React source
@@ -37,7 +37,8 @@ The API reads configuration from `api/config.php`. To keep secrets out of git, `
 Recommended workflow:
 
 1. Create `api/config.php` from `api/config.php.example` (if present) or copy the sample below and set your credentials.
-2. For local dev you can use SQLite by setting the `driver` to `sqlite` and pointing `sqlite_path` to `api/products.db`.
+2. For local dev you can still use SQLite for quick tests, but this repository's v2 codepath prefers MySQL for production.
+If you plan to deploy to production, use MySQL and run the schema in `sql/create_products.sql`.
 
 Example minimal `api/config.php` (DO NOT commit your real credentials):
 
@@ -52,9 +53,9 @@ return [
     // 'password' => 'secret',
     // 'charset' => 'utf8mb4',
 
-    // Local SQLite dev fallback:
-    'driver' => 'sqlite',
-    'sqlite_path' => __DIR__ . '/products.db',
+  // Local SQLite dev fallback (deprecated):
+  // 'driver' => 'sqlite',
+  // 'sqlite_path' => __DIR__ . '/products.db',
 ];
 ```
 

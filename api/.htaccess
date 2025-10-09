@@ -1,0 +1,18 @@
+# Route all API requests to v2 by default
+RewriteEngine On
+
+# If the request is already for /api/v2, do nothing
+RewriteCond %{REQUEST_URI} !^/api/v2/ [NC]
+
+# Internally rewrite any /api/*.php to /api/v2/*.php if file exists
+RewriteRule ^([^/]+\.php)$ v2/$1 [L]
+
+# Deny direct access to v1 directory
+<IfModule mod_authz_core.c>
+    <Directory "v1">
+        Require all denied
+    </Directory>
+</IfModule>
+
+# Fallback: deny listing
+Options -Indexes

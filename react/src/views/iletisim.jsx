@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 
 export default function Iletisim(){
   // Exact address string requested by the user — force this as the default query shown in the map
-  const FIXED_ADDRESS = 'Osmanyılmaz, Mehmet Akif Ersoy Cad. No:52, 41400 Gebze/Kocaeli';
+  const FIXED_ADDRESS = 'Osman Yılmaz Mah. Mehmet Akif Ersoy Cad. No:52 Gebze / Kocaeli / TÜRKİYE';
   // Allow overriding via Vite env vars for exact control (useful when Google queries are ambiguous)
   const VENV = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : {};
   const envQuery = VENV.VITE_CONTACT_QUERY || '';

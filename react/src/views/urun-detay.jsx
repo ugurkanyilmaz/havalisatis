@@ -5,6 +5,7 @@ import ProtectedImage from "../components/ProtectedImage.jsx";
 import { setProductHead, clearHead } from "../lib/head_manager.js";
 import { formatPriceTL } from "../lib/format.js";
 import { fetchProductBySku, fetchProducts } from "../lib/api_calls.js";
+import { normalizeImageUrl, dedupeImageList } from "../lib/normalize.js";
 
 /* -------------------- Helpers -------------------- */
 function getProductImage(p) {
@@ -82,41 +83,13 @@ function DescriptionFormatted({ text }) {
 
 function ProductGallery({ product }) {
   const images = useMemo(() => {
-    const normalizeImgUrl = (s) => {
-      if (!s) return null;
-      let t = String(s).trim();
-      t = t.replace(/&quot;|"/g, '').trim();
-      if (!t) return null;
-      if (/^https?:\/\//i.test(t)) return t;
-      if (/^\/\//.test(t)) return window.location.protocol + t;
-      if (/^[^\s\/]+\.[^\s\/]+/.test(t)) return 'https://' + t;
-      return t;
-    };
-
-    const list = [product?.main_img, product?.img1, product?.img2, product?.img3, product?.img4]
-      .filter((src) => src && typeof src === "string")
-      .map((src) => {
-        const s = String(src).trim();
-        if (s.startsWith("http")) return s;
-        if (s.startsWith("//")) return "https:" + s;
-        return s;
-      });
-    // Remove duplicates (normalize URL: strip query/hash, lowercase)
-    const normalize = (s) => {
-      try {
-        const url = new URL(s);
-        return (url.origin + url.pathname).toLowerCase();
-      } catch {
-        return s.split('?')[0].split('#')[0].toLowerCase();
-      }
-    };
-    const seen = new Set();
-    const uniq = [];
-    for (const u of list) {
-      const key = normalize(u);
-      if (!seen.has(key)) { seen.add(key); uniq.push(u); }
-    }
-    return uniq;
+    return dedupeImageList([
+      normalizeImageUrl(product?.main_img),
+      normalizeImageUrl(product?.img1),
+      normalizeImageUrl(product?.img2),
+      normalizeImageUrl(product?.img3),
+      normalizeImageUrl(product?.img4),
+    ]);
   }, [product]);
   const [idx, setIdx] = useState(0);
   const [lightbox, setLightbox] = useState(false); // fullscreen viewer
@@ -932,12 +905,15 @@ export default function UrunDetay() {
   const features = useMemo(() => {
     const keys = Array.from({ length: 8 }, (_, i) => `feature${i + 1}`);
     return keys
-      .map((k) => p?.[k]?.toString().trim())
-      .filter(Boolean)
-      .map((raw) => {
+      .map((k) => {
+        const v = p?.[k];
+        if (v === undefined || v === null) return null;
+        const raw = String(v).trim();
+        if (!raw) return null;
         const [name, ...rest] = raw.split(":");
-        return { name: name.trim(), value: rest.join(":").trim() || "" };
-      });
+        return { name: (name || "-").trim(), value: rest.join(":").trim() };
+      })
+      .filter(Boolean);
   }, [p]);
 
 
@@ -978,11 +954,14 @@ export default function UrunDetay() {
             <span className="text-sm text-neutral-600">{p.star_rating ? `${Number(p.star_rating).toFixed(1)} Kalite Puanı` : 'Puan yok'}</span>
           </div>
           <ProductPrice product={p} />
-          {p.description && (
-            <div className="mb-6">
-              <DescriptionFormatted text={p.description} />
-            </div>
-          )}
+          {(() => {
+            const desc = p.description || p.product_description;
+            return desc ? (
+              <div className="mb-6">
+                <DescriptionFormatted text={desc} />
+              </div>
+            ) : null;
+          })()}
           <div className="text-sm text-neutral-500">SKU: {p.sku}</div>
         </div>
       </div>

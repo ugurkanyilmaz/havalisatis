@@ -1,13 +1,15 @@
 import React, { useEffect, forwardRef } from 'react';
+import { normalizeImageUrl } from '../lib/normalize.js';
 
 // Renders an element using background-image so mobile browsers don't show
 // the native "save image" UI on long-press. Preserves a lightweight onLoad
 // callback by preloading the image and forwarding naturalWidth/Height.
 const ProtectedImage = forwardRef(function ProtectedImage({ src, alt = '', className = '', style = {}, onClick, onLoad }, ref) {
+  const normSrc = normalizeImageUrl(src);
   useEffect(() => {
-    if (!src) return;
+    if (!normSrc) return;
     let img = new Image();
-    img.src = src;
+    img.src = normSrc;
     img.onload = () => {
       if (onLoad) {
         // simulate a minimal event with currentTarget.naturalWidth/Height
@@ -16,10 +18,10 @@ const ProtectedImage = forwardRef(function ProtectedImage({ src, alt = '', class
     };
     return () => { if (img) img.onload = null; img = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src]);
+  }, [normSrc]);
 
   const baseStyle = {
-    backgroundImage: src ? `url(${src})` : 'none',
+    backgroundImage: normSrc ? `url(${normSrc})` : 'none',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat',
     backgroundSize: (className && (className.includes('object-contain') || className.includes('product-image'))) ? 'contain' : 'cover',

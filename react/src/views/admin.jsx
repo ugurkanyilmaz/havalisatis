@@ -39,6 +39,8 @@ export default function AdminPanel() {
   const [products, setProducts] = useState([]);
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState("");
+  const [searching, setSearching] = useState(false);
+  const searchTimeoutRef = React.useRef(null);
   const [form, setForm] = useState(null);
 
   // Auth state
@@ -46,18 +48,22 @@ export default function AdminPanel() {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [loginError, setLoginError] = useState(null);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
+  
+  // Cache refresh state
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState('');
 
   useEffect(() => {
     // Check session on mount
-    fetch('/api/admin_check.php', { credentials: 'include' })
+    fetch('/api/v2/admin.php?action=check', { credentials: 'include' })
       .then(async (r) => {
         // robust parsing: handle empty responses
         const text = await r.text();
-        if (!text) return { logged_in: false };
-        try { return JSON.parse(text); } catch { return { logged_in: false }; }
+        if (!text) return { success: false };
+        try { return JSON.parse(text); } catch { return { success: false }; }
       })
       .then((j) => {
-        if (j.logged_in) setUser(j.user);
+        if (j.success && j.data?.user) setUser(j.data.user);
       })
       .catch(() => {})
       .finally(() => setLoadingAuth(false));
@@ -68,7 +74,7 @@ export default function AdminPanel() {
     if (!user) return;
     const load = async () => {
       try {
-  const res = await fetch('/api/products.php?per_page=200');
+  const res = await fetch('/api/v2/products.php?per_page=200');
         const json = await res.json();
         setProducts(Array.isArray(json.items) ? json.items : []);
       } catch (err) {
@@ -91,7 +97,7 @@ export default function AdminPanel() {
   function doLogin(e) {
     e.preventDefault();
     setLoginError(null);
-    fetch('/api/admin_login.php', {
+    fetch('/api/v2/admin.php?action=login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(loginForm),
@@ -100,31 +106,166 @@ export default function AdminPanel() {
       .then(async (r) => {
         const text = await r.text();
         let j = null;
-        try { j = text ? JSON.parse(text) : null; } catch (e) { j = { error: 'Invalid JSON response from server' }; }
+        try { j = text ? JSON.parse(text) : null; } catch (e) { j = { success: false, message: 'Invalid JSON response from server' }; }
         return { ok: r.ok, json: j };
       })
       .then(({ ok, json }) => {
-        if (!ok) {
-          setLoginError(json.error || 'Login failed');
+        if (!ok || !json.success) {
+          setLoginError(json.message || 'Login failed');
           return;
         }
-        setUser(json.user);
+        setUser(json.data?.user);
         setLoginForm({ username: '', password: '' });
       })
       .catch((err) => setLoginError(String(err)));
   }
 
   function doLogout() {
-    fetch('/api/admin_logout.php', { credentials: 'include' })
+    fetch('/api/v2/admin.php?action=logout', { method: 'POST', credentials: 'include' })
       .then(() => setUser(null))
       .catch(() => setUser(null));
   }
 
-  const filtered = products.filter(
-    (p) =>
-      (p.title || '').toLowerCase().includes(search.toLowerCase()) ||
-      (p.sku || '').toLowerCase().includes(search.toLowerCase())
-  );
+  async function refreshHomeCache() {
+    setRefreshing(true);
+    setRefreshMessage('');
+    
+    try {
+      const response = await fetch('/api/v2/admin.php?action=refresh_home', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setRefreshMessage('✅ Ana sayfa cache güncellendi!');
+        setTimeout(() => setRefreshMessage(''), 5000);
+      } else {
+        setRefreshMessage('❌ Hata: ' + (result.message || 'Bilinmeyen hata'));
+      }
+    } catch (error) {
+      setRefreshMessage('❌ Bağlantı hatası: ' + error.message);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  /**
+   * TagsManager component (inline in admin view)
+   */
+  function TagsManager() {
+    const [tags, setTags] = React.useState([]);
+    const [loading, setLoading] = React.useState(false);
+    const [deleting, setDeleting] = React.useState(null);
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const r = await fetch('/api/v2/tags.php');
+        if (r.ok) {
+          const j = await r.json();
+          setTags(Array.isArray(j) ? j : []);
+        } else {
+          setTags([]);
+        }
+      } catch (e) {
+        setTags([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    React.useEffect(() => { load(); }, []);
+
+    const doDelete = async (tagKey) => {
+      if (!confirm(`'${tagKey}' etiketini tüm ürünlerden silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) return;
+      setDeleting(tagKey);
+      try {
+        const r = await fetch('/api/v2/admin.php?action=delete_tag', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tag: tagKey }), credentials: 'include' });
+        const j = await r.json();
+        if (!r.ok || !j.success) {
+          alert('Silme başarısız: ' + (j.message || JSON.stringify(j)));
+        } else {
+          alert(`Etiket silindi: ${j.data.deleted_from} ürün güncellendi`);
+          // refresh tags and products list (clear and reload)
+          load();
+        }
+      } catch (e) {
+        alert('Silme hatası: ' + e.message);
+      } finally { setDeleting(null); }
+    };
+
+    return (
+      <div className="bg-white border rounded p-2">
+        {loading ? (
+          <div className="text-xs text-neutral-500">Yükleniyor...</div>
+        ) : tags.length === 0 ? (
+          <div className="text-xs text-neutral-500">Etiket bulunamadı</div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {tags.map(t => (
+              <div key={t.key} className="flex items-center justify-between text-sm">
+                <div className="truncate mr-2">{t.label} <span className="text-xs text-gray-400">({t.key})</span></div>
+                <div>
+                  <button disabled={deleting===t.key} onClick={() => doDelete(t.key)} className="text-xs text-red-600 hover:underline">Sil</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // If a search term is present, prefer server-side search (debounced).
+  // Otherwise show the full loaded product list.
+  const filtered = products;
+
+  // Debounced server-side search effect
+  useEffect(() => {
+    if (!user) return;
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    // small debounce to avoid spamming the backend
+    searchTimeoutRef.current = setTimeout(async () => {
+      const q = (search || '').trim();
+      if (q === '') {
+        // reload full list (light-weight; server returns paginated list but we request many)
+        try {
+          setSearching(true);
+          const res = await fetch('/api/v2/products.php?per_page=200', { credentials: 'include' });
+          if (res.ok) {
+            const j = await res.json();
+            setProducts(Array.isArray(j.items) ? j.items : []);
+          }
+        } catch (e) {
+          // ignore
+        } finally {
+          setSearching(false);
+        }
+        return;
+      }
+
+      try {
+        setSearching(true);
+        // server-side search: query by q, get up to 200 results for admin list
+        const res = await fetch(`/api/v2/products.php?q=${encodeURIComponent(q)}&per_page=200`, { credentials: 'include' });
+        if (res.ok) {
+          const j = await res.json();
+          setProducts(Array.isArray(j.items) ? j.items : []);
+        } else {
+          // if server error, keep local list
+        }
+      } catch (err) {
+        // network or parse error - ignore and keep current list
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+
+    return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
+  }, [search, user]);
 
   if (loadingAuth) {
     return (
@@ -170,9 +311,35 @@ export default function AdminPanel() {
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
       <aside className="w-1/3 lg:w-1/4 bg-white border-r p-4 flex flex-col">
-        <div className="mb-4">
+        <div className="mb-4 space-y-3">
           <div className="text-sm">Giriş yapan: <strong>{user.username}</strong></div>
-          <button onClick={doLogout} className="mt-2 px-2 py-1 bg-gray-200 rounded text-sm">Çıkış</button>
+          <button onClick={doLogout} className="mt-2 px-2 py-1 bg-gray-200 rounded text-sm hover:bg-gray-300 transition">Çıkış</button>
+          
+          {/* Cache Refresh Button */}
+          <div className="pt-3 border-t border-gray-200">
+            <button 
+              onClick={refreshHomeCache} 
+              disabled={refreshing}
+              className="w-full px-3 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+            >
+              {refreshing ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Yenileniyor...
+                </>
+              ) : (
+                <>🔄 Ana Sayfa Cache Yenile</>
+              )}
+            </button>
+            {refreshMessage && (
+              <div className={`mt-2 text-xs p-2 rounded ${refreshMessage.startsWith('✅') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                {refreshMessage}
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Ürünler</h2>
@@ -182,6 +349,16 @@ export default function AdminPanel() {
           >
             + Ekle
           </button>
+        </div>
+        {/* Tags management - fetch from public tags endpoint and allow admin to delete unused tags */}
+        <div className="mb-4">
+          <div className="text-sm font-semibold mb-2">Etiketler (Yönetim)</div>
+          <TagsManager />
+        </div>
+        {/* Categories management */}
+        <div className="mb-4">
+          <div className="text-sm font-semibold mb-2">Kategoriler (Yönetim)</div>
+          <CategoriesManager />
         </div>
         <input
           type="text"
@@ -200,7 +377,7 @@ export default function AdminPanel() {
               onClick={async () => {
                 // Fetch full product details by SKU so admin form receives all fields
                 try {
-                  const r = await fetch(`/api/products.php?sku=${encodeURIComponent(p.sku)}`, { credentials: 'include' });
+                  const r = await fetch(`/api/v2/products.php?sku=${encodeURIComponent(p.sku)}`, { credentials: 'include' });
                   if (r.ok) {
                     const j = await r.json();
                     if (j && j.product) setSelected(j.product);
@@ -235,10 +412,10 @@ export default function AdminPanel() {
               const file = input.files[0];
               const fd = new FormData(); fd.append('file', file);
               try {
-                const res = await fetch('/api/upload.php', { method: 'POST', body: fd, credentials: 'include' });
+                const res = await fetch('/api/v2/admin.php?action=bulk_upload', { method: 'POST', body: fd, credentials: 'include' });
                 const json = await res.json();
-                if (!res.ok) { alert('Hata: ' + (json.error || JSON.stringify(json))); return; }
-                alert('Yüklendi: inserted=' + json.inserted + ', updated=' + json.updated + ', errors=' + (json.errors?.length || 0));
+                if (!json.success) { alert('Hata: ' + (json.message || JSON.stringify(json))); return; }
+                alert('Yüklendi: inserted=' + json.data.inserted + ', updated=' + json.data.updated + ', errors=' + (json.data.errors?.length || 0));
               } catch (err) { alert('Upload failed: ' + err); }
             }}>Yükle</button>
           </div>
@@ -257,12 +434,12 @@ export default function AdminPanel() {
                 if (!form) return; 
                 try {
                   const payload = [form];
-                  const res = await fetch('/api/upload.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
+                  const res = await fetch('/api/v2/admin.php?action=bulk_upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), credentials: 'include' });
                     const j = await res.json();
-                  if (!res.ok) { alert('Kaydetme hatası: ' + (j.error || JSON.stringify(j))); return; }
-                  alert('Kaydedildi. inserted=' + j.inserted + ', updated=' + j.updated);
+                  if (!j.success) { alert('Kaydetme hatası: ' + (j.message || JSON.stringify(j))); return; }
+                  alert('Kaydedildi. inserted=' + j.data.inserted + ', updated=' + j.data.updated);
                   // reload products
-                  const r2 = await fetch('/api/products.php?per_page=200'); const j2 = await r2.json(); setProducts(Array.isArray(j2.items)? j2.items: []);
+                  const r2 = await fetch('/api/v2/products.php?per_page=200'); const j2 = await r2.json(); setProducts(Array.isArray(j2.items)? j2.items: []);
                 } catch (err) { alert('Kaydetme hatası: ' + err); }
               }}>
               {/* Kategoriler */}
@@ -445,12 +622,12 @@ export default function AdminPanel() {
                       if (!form?.sku) { alert('SKU yok'); return; }
                       if (!confirm('Bu ürünü silmek istediğinize emin misiniz?')) return;
                       try {
-                        const res = await fetch('/api/product_delete.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sku: form.sku }), credentials: 'include' });
+                        const res = await fetch('/api/v2/products.php?action=delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sku: form.sku }), credentials: 'include' });
                         const j = await res.json();
-                        if (!res.ok) { alert('Silme hatası: ' + (j.error || JSON.stringify(j))); return; }
+                        if (!j.success) { alert('Silme hatası: ' + (j.message || JSON.stringify(j))); return; }
                         alert('Silindi');
                         // reload products and clear selection
-                        const r2 = await fetch('/api/products.php?per_page=200'); const j2 = await r2.json(); setProducts(Array.isArray(j2.items)? j2.items: []);
+                        const r2 = await fetch('/api/v2/products.php?per_page=200'); const j2 = await r2.json(); setProducts(Array.isArray(j2.items)? j2.items: []);
                         setSelected(null); setForm(null);
                       } catch (err) { alert('Silme hatası: ' + err); }
                     }}
@@ -473,6 +650,68 @@ export default function AdminPanel() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function CategoriesManager() {
+  const [cats, setCats] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch('/api/v2/categories.php');
+      if (r.ok) {
+        const j = await r.json();
+        // backend returns array of { parent_category, child_category, cnt }
+        setCats(Array.isArray(j) ? j : []);
+      } else setCats([]);
+    } catch (e) { setCats([]); }
+    setLoading(false);
+  };
+
+  React.useEffect(() => { load(); }, []);
+
+  const doDelete = async (type, name) => {
+    if (!confirm(`'${name}' kategorisini (${type}) tüm ürünlerden silmek istediğinize emin misiniz?`)) return;
+    setDeleting(name);
+    try {
+      const r = await fetch('/api/v2/admin.php?action=delete_category', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, name }), credentials: 'include' });
+      const j = await r.json();
+      if (!r.ok || !j.success) {
+        alert('Silme başarısız: ' + (j.message || JSON.stringify(j)));
+      } else {
+        alert(`Kategori silindi: ${j.data.deleted_from} ürün güncellendi`);
+        load();
+      }
+    } catch (e) { alert('Silme hatası: ' + e.message); }
+    finally { setDeleting(null); }
+  };
+
+  return (
+    <div className="bg-white border rounded p-2">
+      {loading ? (
+        <div className="text-xs text-neutral-500">Yükleniyor...</div>
+      ) : cats.length === 0 ? (
+        <div className="text-xs text-neutral-500">Kategori bulunamadı</div>
+      ) : (
+        <div className="flex flex-col gap-2 max-h-48 overflow-auto">
+          {cats.map((c, idx) => (
+            <div key={idx} className="flex items-center justify-between text-sm">
+              <div className="truncate mr-2">
+                <div className="font-medium">{c.parent_category || '(Boş)'}</div>
+                <div className="text-xs text-gray-500">{c.child_category || '(Boş)'} — {c.cnt} ürün</div>
+              </div>
+              <div className="flex gap-2">
+                <button disabled={deleting===c.parent_category} onClick={() => doDelete('parent', c.parent_category)} className="text-xs text-red-600 hover:underline">Sil Parent</button>
+                <button disabled={deleting===c.child_category} onClick={() => doDelete('child', c.child_category)} className="text-xs text-red-600 hover:underline">Sil Child</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

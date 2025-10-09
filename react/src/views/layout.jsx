@@ -101,6 +101,8 @@ export default function Layout(){
   // Use consistent base path without trailing slash
   const base = '/urunler'
   navigate(`${base}?q=${encodeURIComponent(trimmed)}`);
+      // Ensure immediate scroll to top so user sees the top of product results
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch { window.scrollTo(0,0); }
       setSearchQuery(''); // Search bar'ı temizle
       setShowDropdown(false);
     }
@@ -142,11 +144,18 @@ export default function Layout(){
                   to={item.to}
                   className={({ isActive }) => `relative group transition-all px-2 py-1 rounded ${isActive ? 'text-white bg-white/20 shadow-lg backdrop-blur-sm' : 'text-white/90 hover:text-white hover:bg-white/10 backdrop-blur-sm'}`}
                   onClick={(e) => {
-                    // If we're already on the target route, prevent redundant navigation and scroll to top
+                    // Use programmatic navigation so we can guarantee scrolling to top on first click.
+                    e.preventDefault();
+                    // If already on the same route, just scroll to top
                     if (location.pathname === item.to) {
-                      e.preventDefault();
                       try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch { window.scrollTo(0,0); }
+                      setMobileMenuOpen(false);
+                      return;
                     }
+                    // Navigate and then scroll to top to ensure we land at top of new page
+                    navigate(item.to);
+                    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch { window.scrollTo(0,0); }
+                    setMobileMenuOpen(false);
                   }}
                 >
                   {({ isActive }) => (

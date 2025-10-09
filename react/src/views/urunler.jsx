@@ -4,18 +4,11 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import StarRating from "../components/common/StarRating.jsx";
 import { formatPriceTL } from "../lib/format.js";
 import ProtectedImage from "../components/ProtectedImage.jsx";
-import { fetchCategories, fetchProducts, fetchTags } from "../lib/api_calls.js";
+import { normalizeImageUrl } from "../lib/normalize.js";
+import { fetchCategories, fetchProducts, fetchTags, fetchAllProducts } from "../lib/api_calls.js";
 
 function ProductCard({ p }) {
-  const rawImg = p.main_img || p.img1 || p.img || null;
-  const img = (function normalizeImgUrl(s) {
-    if (!s) return null;
-    s = String(s).trim();
-    if (/^https?:\/\//i.test(s)) return s;
-    if (/^\/\//.test(s)) return window.location.protocol + s;
-    if (/^[^\s\/]+\.[^\s\/]+/.test(s)) return 'https://' + s;
-    return s;
-  })(rawImg);
+  const img = normalizeImageUrl(p.main_img || p.img1 || p.img || null);
 
   const fireClick = () => { window.scrollTo(0,0); };
 
@@ -95,6 +88,7 @@ export default function Urunler() {
   const location = useLocation();
   const navigate = useNavigate();
   const queryTimeout = useRef(null);
+  const allModeRef = useRef(false); // when no filters => load all once
 
   useEffect(() => {
     fetchCategories()
@@ -154,11 +148,37 @@ export default function Urunler() {
   useEffect(() => {
     let cancelled = false;
     const doFetch = async () => {
-      console.debug(`[urunler] doFetch start -> page=${page}, perPage=${perPage}, q='${query}', parent='${selectedParent}', child='${selectedChild}'`);
+  console.log(`[urunler] doFetch start -> page=${page}, perPage=${perPage}, q='${query}', parent='${selectedParent}', child='${selectedChild}'`);
       try {
+        const noFilter = !selectedParent && !selectedChild && !query;
+        if (noFilter) {
+          // Load all products once
+          if (!allModeRef.current) {
+            setLoadingMore(true);
+            try {
+              console.log('[urunler] fetchAllProducts starting');
+              const data = await fetchAllProducts();
+              console.log('[urunler] fetchAllProducts result', { total: data.total, items: Array.isArray(data.items) ? data.items.length : typeof data.items });
+              if (cancelled) return;
+              setProducts(data.items || []);
+              setTotal(data.total || (data.items ? data.items.length : 0));
+              setPage(1); // pin to first page; sentinel won't trigger more fetches because we won't handle page>1 in all-mode
+              // mark all-mode only after successful state update to avoid Strict Mode race
+              allModeRef.current = true;
+            } catch (e) {
+              console.error('[urunler] fetchAllProducts failed', e);
+              if (cancelled) return;
+              setProducts([]);
+              setTotal(0);
+            }
+          }
+          return; // skip paginated fetch while in all-mode
+        }
+
+        // filtered/search mode -> paginated fetching
         if (page > 1) setLoadingMore(true);
         const data = await fetchProducts({ parent: selectedParent, child: selectedChild, q: query, page, per_page: perPage });
-        console.debug(`[urunler] fetch response -> page=${page}, items=${(data.items||[]).length}, total=${data.total}`);
+  console.log(`[urunler] fetch response -> page=${page}, items=${(data.items||[]).length}, total=${data.total}`);
         if (cancelled) return;
         const items = data.items || [];
         setTotal(data.total || 0);
@@ -174,6 +194,7 @@ export default function Urunler() {
           });
         }
       } catch (err) {
+        console.error('[urunler] doFetch error', err);
         if (!cancelled) {
           if (page === 1) { setProducts([]); setTotal(0); }
         }
@@ -200,6 +221,9 @@ export default function Urunler() {
       setSelectedChild(childParam || null);
       setSelectedTag(tagParam || null);
       setPage(1);
+      // reset all-mode when filters/search change
+      const noFilterNext = !(parentParam || childParam || qParam);
+      allModeRef.current = !noFilterNext ? false : allModeRef.current;
       // request scroll after products load on mobile
       scrollPendingRef.current = true;
     }
@@ -291,6 +315,15 @@ export default function Urunler() {
     }
     return undefined;
   }, [products]);
+
+  // Debug: log products state whenever it changes to help diagnose render issues
+  useEffect(() => {
+    try {
+      console.log('[urunler][debug] products updated', { count: products.length, total, sample: products.slice(0,3) });
+    } catch (e) {
+      // ignore
+    }
+  }, [products, total]);
 
   return (
     <div className="min-h-screen p-6 bg-gray-50">
@@ -420,6 +453,14 @@ export default function Urunler() {
                 <ProductCard key={p.sku || p.id} p={p} />
               ))}
             </div>
+
+            {/* Dev-only debug panel: append ?debug_products=1 to URL to show client-side products JSON */}
+            {new URLSearchParams(location.search || '').get('debug_products') === '1' && (
+              <div className="mt-4 p-3 bg-white rounded border border-neutral-200">
+                <div className="text-xs text-neutral-600 font-semibold mb-2">Debug: products (client state)</div>
+                <pre className="text-xs max-h-64 overflow-auto whitespace-pre-wrap">{JSON.stringify({ total, count: products.length, items: products.slice(0,50) }, null, 2)}</pre>
+              </div>
+            )}
 
             {/* Infinite scroll sentinel and loader */}
             <div ref={sentinelRef} style={{ minHeight: 1 }} />

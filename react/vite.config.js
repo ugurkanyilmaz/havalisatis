@@ -12,25 +12,13 @@ export default defineConfig({
     port: 5173,
     strictPort: false,
     proxy: {
-      // Proxy PHP API calls to the PHP built-in server running on port 8000
-      // Incoming '/php/products.php' -> forwarded to 'http://localhost:8000/products.php'
-      '/php': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-        secure: false,
-        // strip the leading /php prefix so the PHP server (docroot = php/) receives '/products.php'
-        rewrite: (path) => path.replace(/^\/php/, '')
-      }
-      ,
-      // Also proxy '/api' so frontend code using '/api/...' maps to the PHP dev server.
-      // This keeps existing frontend code unchanged while allowing Vite to forward
-      // API requests to the PHP built-in server at port 8000.
+      // Proxy API calls to the PHP built-in server running on port 8001
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:8001',
         changeOrigin: true,
         secure: false,
-        // strip the leading /api prefix so the PHP server receives '/admin_login.php' etc.
-        rewrite: (path) => path.replace(/^\/api/, '')
+        // Keep /api prefix - PHP expects /api/v2/... paths
+        rewrite: (path) => path
       }
     }
   },
