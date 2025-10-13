@@ -51,6 +51,12 @@ export function applyHomeMeta() {
     "name": "Keten Pnömatik",
     "url": "https://havalielaletlerisatis.com",
     "description": "Keten Pnömatik; havalı, elektrikli ve tork kontrollü el aletleri satışında uzmanlaşmış, sanayi tipi montaj çözümleri ve teknik servis hizmetleri sunan bir markadır.",
+    "contactPoint": [{
+      "@type": "ContactPoint",
+      "telephone": "0262 643 43 39",
+      "contactType": "sales",
+      "availableLanguage": ["tr"]
+    }]
   });
 }
 
@@ -107,7 +113,7 @@ export function applyContactMeta() {
   addManagedJsonLd({
     "@context": "https://schema.org",
     "@type": "ContactPoint",
-    "telephone": "+905414526058",
+    "telephone": "0262 643 43 39",
     "contactType": "customer support",
     "areaServed": "TR",
     "availableLanguage": ["Turkish"],

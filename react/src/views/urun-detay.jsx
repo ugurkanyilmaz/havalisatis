@@ -275,7 +275,7 @@ function ProductGallery({ product }) {
                 aria-label={`Görsel ${i+1}`}
               >
                   <div className="w-full h-full bg-gray-50 grid place-items-center">
-                    <ProtectedImage src={u} alt={product?.title || product?.sku || 'ürün görseli'} className="w-full h-full object-contain no-download product-image" style={{ backgroundSize: 'contain', backgroundPosition: 'center' }} />
+                    <ProtectedImage src={u} alt={product?.title || product?.sku || 'ürün görseli'} className="w-full h-full object-contain no-download product-image" style={{ backgroundSize: 'contain', backgroundPosition: 'center' }} allowNativeOnMobile={true} />
                   </div>
               </button>
             ))}
@@ -291,6 +291,7 @@ function ProductGallery({ product }) {
                 className="w-full h-full object-contain select-none cursor-zoom-in"
                 style={{ backgroundSize: 'contain', backgroundPosition: 'center' }}
                 onClick={() => setLightbox(true)}
+                allowNativeOnMobile={true}
               />
             ) : (
               <div className="w-full h-full grid place-items-center text-neutral-400 text-xs">Görsel yok</div>
@@ -323,13 +324,14 @@ function ProductGallery({ product }) {
             {...(hasHover ? { onMouseMove: onMove, onMouseEnter: onEnter, onMouseLeave: onLeave } : {})}
           >
             {current ? (
-              <ProtectedImage
+                    <ProtectedImage
                 ref={imgRef}
                 src={current}
                 alt={product?.title || product?.sku}
                 className="absolute inset-0 w-full h-full object-cover select-none cursor-zoom-in no-download product-image"
                 style={{ backgroundSize: 'contain', backgroundPosition: 'center' }}
                 onClick={() => setLightbox(true)}
+                allowNativeOnMobile={true}
                 onLoad={(e) => {
                   const el = e.currentTarget;
                   if (el?.naturalWidth && el?.naturalHeight) {
@@ -386,7 +388,7 @@ function ProductGallery({ product }) {
               aria-label={`Görsel ${i+1}`}
             >
               <div className="w-full h-full bg-gray-50 grid place-items-center">
-                <ProtectedImage src={u} alt={product?.title || product?.sku || 'ürün görseli'} className="w-full h-full object-contain no-download product-image" style={{ backgroundSize: 'contain', backgroundPosition: 'center' }} />
+                <ProtectedImage src={u} alt={product?.title || product?.sku || 'ürün görseli'} className="w-full h-full object-contain no-download product-image" style={{ backgroundSize: 'contain', backgroundPosition: 'center' }} allowNativeOnMobile={true} />
               </div>
             </button>
           ))}

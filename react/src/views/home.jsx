@@ -893,44 +893,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="bg-[#1f1f20] text-neutral-400 text-sm">
-        <div className="max-w-6xl mx-auto px-6 py-10 grid md:grid-cols-3 gap-12">
-          <div className="space-y-3">
-            <h4 className="text-white font-semibold tracking-wide">KETEN PNÖMATİK</h4>
-            <p className="text-xs leading-relaxed text-neutral-400">Profesyonel el aletleri satış platformu.</p>
-            <div className="text-xs text-neutral-400 mt-3 space-y-1">
-              <div>Adres: Yenikent, Mehmet Akif Ersoy Cad. No:52, 41400 Gebze/Kocaeli</div>
-              <div>Telefon: <a href="tel:+905414526058" className="text-neutral-200 hover:underline">+90 (541) 452 60 58</a></div>
-              <div>Telefon (PBX): <a href="tel:+902626434339" className="text-neutral-200 hover:underline">+90 (262) 643 43 39</a></div>
-              <div>E-posta: <a href="mailto:info@ketenpnomatik.com.tr" className="text-neutral-200 hover:underline">info@ketenpnomatik.com.tr</a></div>
-            </div>
-          </div>
-
-          <div>
-            <h5 className="text-white font-semibold mb-3 text-xs tracking-wider">BİLGİ</h5>
-            <ul className="space-y-1 text-xs text-neutral-400">
-              <li><span className="text-brand-orange">İletişim</span></li>
-              <li><span>Teknik Servis</span></li>
-              <li><a href="#" className="hover:underline">Katalog (PDF)</a></li>
-            </ul>
-            <div className="mt-4 flex items-center gap-3">
-              <a href="#" className="text-neutral-200 hover:text-white">WhatsApp</a>
-              <a href="#" className="text-neutral-200 hover:text-white">Instagram</a>
-              <a href="#" className="text-neutral-200 hover:text-white">YouTube</a>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-start justify-center">
-            <h5 className="text-white font-semibold mb-2 text-xs tracking-wider">Demo Talep</h5>
-            <p className="text-xs text-neutral-400 leading-relaxed mb-3">Türkiye’nin her yerindeki satış temsilcilerimizden demo talep edin, ürünlerimizi kendi çalışma alanınızda deneyimleyin.</p>
-            <button className="inline-flex items-center gap-2 rounded-lg bg-brand-orange text-white text-[13px] font-semibold px-4 py-2" disabled aria-label="Demo talep et">Demo Talep Et</button>
-          </div>
-        </div>
-        <div className="border-t border-white/5 text-center py-5 text-[11px] tracking-wide">
-          © 1998 Keten Pnömatik.
-        </div>
-      </footer>
+      {/* Footer moved to shared component (Layout) */}
     </main>
   );
 }

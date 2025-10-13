@@ -131,11 +131,16 @@ export function buildProductHead(product, options = {}) {
   const p = product || {};
   const images = getProductImages(p);
   const primaryImage = images[0] || null;
+  // If an explicit SEO meta_title is provided in the product record, use it exactly as-is
+  // (do NOT append the site name or truncate) per editorial requirements.
   const baseTitle = p?.seo?.meta_title || p?.title || p?.sku || siteName;
-  const title = composeTitle(baseTitle, siteName, 60);
+  const title = p?.seo?.meta_title ? String(p.seo.meta_title) : composeTitle(baseTitle, siteName, 60);
+
+  // Use meta_description from the product SEO payload as-is when present.
+  // Do not truncate or modify the DB value; fall back to product description when missing.
   const description = p?.seo?.meta_description || p?.description || '';
-  const metaDescription = truncate(description, 170);
-  const schemaDescription = truncate(p?.seo?.schema_description || description || '', 220);
+  const metaDescription = description;
+  const schemaDescription = p?.seo?.schema_description || description || '';
   const url = getCurrentUrl();
   const canonical = canonicalFromEnv(url);
   const brandName = p?.brand || '';
@@ -147,7 +152,8 @@ export function buildProductHead(product, options = {}) {
   const availabilityHuman = availabilityText(availability);
   const features = parseFeatures(p);
   // Prefer explicit meta_keywords from SEO payload; fallback to auto-built keywords
-  const keywords = (p?.seo && p.seo.meta_keywords) ? String(p.seo.meta_keywords).trim() : buildKeywords(p, features);
+  // If meta_keywords provided in SEO payload, use them exactly as-is; otherwise auto-build.
+  const keywords = (p?.seo && p.seo.meta_keywords) ? String(p.seo.meta_keywords) : buildKeywords(p, features);
   const localeNormalized = (locale || 'tr-TR').replace('_','-');
   const ogImage = toAbsoluteUrl(primaryImage || (images.length ? images[0] : undefined));
   const twitterCard = ogImage ? 'summary_large_image' : 'summary';
@@ -210,7 +216,7 @@ export function buildProductHead(product, options = {}) {
   logo: ENV_SITE_URL + '/weblogo.jpg',
     contactPoint: [{
       '@type': 'ContactPoint',
-      telephone: '+90-532-000-0000',
+      telephone: '0262 643 43 39',
       contactType: 'sales',
       availableLanguage: ['tr']
     }]
@@ -248,12 +254,13 @@ export function buildProductHead(product, options = {}) {
       canonical ? { property: 'og:url', content: canonical } : null,
       title ? { property: 'og:title', content: title } : null,
       metaDescription ? { property: 'og:description', content: metaDescription } : null,
-      ogImage ? { property: 'og:image', content: ogImage } : null,
-      ogImage ? { property: 'og:image:alt', content: imgAlt } : null,
+    ogImage ? { property: 'og:image', content: ogImage } : null,
+    ogImage ? { property: 'og:image:alt', content: imgAlt } : null,
+    // Provide explicit image dimensions for Open Graph (recommended min 1200x630)
+    ogImage ? { property: 'og:image:width', content: '1200' } : null,
+    ogImage ? { property: 'og:image:height', content: '630' } : null,
       // Twitter
-      { name: 'twitter:card', content: twitterCard },
-      twitterSite ? { name: 'twitter:site', content: twitterSite } : null,
-      twitterCreator ? { name: 'twitter:creator', content: twitterCreator } : null,
+  { name: 'twitter:card', content: twitterCard },
       title ? { name: 'twitter:title', content: title } : null,
       metaDescription ? { name: 'twitter:description', content: metaDescription } : null,
       ogImage ? { name: 'twitter:image', content: ogImage } : null,
@@ -269,8 +276,10 @@ export function buildProductHead(product, options = {}) {
   priceToUse !== null ? { property: 'og:price:currency', content: priceCurrencyForMeta } : null,
       updatedTime ? { name: 'article:modified_time', content: updatedTime } : null,
     ].filter(Boolean),
+    // Provide canonical link and an hreflang alternate link for Turkish content
     link: [
       canonical ? { rel: 'canonical', href: canonical } : null,
+      canonical ? { rel: 'alternate', href: canonical, hreflang: 'tr' } : null,
     ].filter(Boolean),
     jsonLd: [jsonLdProduct, jsonLdBreadcrumbs, jsonLdOrg, jsonLdWebsite],
     analytics: analyticsId ? `
@@ -401,6 +410,8 @@ export function setHomeHead(options = {}) {
     { property: 'og:description', content: description },
     image ? { property: 'og:image', content: image } : null,
     image ? { property: 'og:image:alt', content: ENV_SITE_NAME } : null,
+    image ? { property: 'og:image:width', content: '1200' } : null,
+    image ? { property: 'og:image:height', content: '630' } : null,
     { name: 'twitter:card', content: image ? 'summary_large_image' : 'summary' },
     { name: 'twitter:title', content: fullTitle },
     { name: 'twitter:description', content: description },
@@ -421,6 +432,13 @@ export function setHomeHead(options = {}) {
     link.setAttribute('href', canonical);
     link.setAttribute(MANAGED_ATTR, MANAGED_VALUE);
     head.appendChild(link);
+    // Also add hreflang alternate link for Turkish content
+    const alt = document.createElement('link');
+    alt.setAttribute('rel','alternate');
+    alt.setAttribute('hreflang','tr');
+    alt.setAttribute('href', canonical);
+    alt.setAttribute(MANAGED_ATTR, MANAGED_VALUE);
+    head.appendChild(alt);
   }
   // Add minimal Organization schema only once on home
   const orgSchema = {
