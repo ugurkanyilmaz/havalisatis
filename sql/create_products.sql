@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS `products` (
   `img4` TEXT,
   `meta_title` TEXT,
   `meta_description` TEXT,
+  `meta_keywords` TEXT,
   `schema_description` TEXT,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

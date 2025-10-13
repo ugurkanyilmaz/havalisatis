@@ -1,5 +1,6 @@
 // src/views/Urunler.jsx
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { applyProductsMeta } from '../lib/head_menager_home.js';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import StarRating from "../components/common/StarRating.jsx";
 import { formatPriceTL } from "../lib/format.js";
@@ -96,6 +97,8 @@ export default function Urunler() {
       .catch(() => setCategories([]));
     // load tags as a separate list to show in sidebar. API returns [{key,label}]
     fetchTags().then(t => setTags(Array.isArray(t) ? t : [])).catch(() => setTags([]));
+    // Apply page meta
+    applyProductsMeta();
   }, []);
 
   // derive ordered unique roots from categories if available

@@ -1,7 +1,9 @@
 import WhatsAppButton from '../components/common/WhatsAppButton.jsx';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { applyContactMeta } from '../lib/head_menager_home.js';
 
 export default function Iletisim(){
+  useEffect(() => { applyContactMeta(); }, []);
   // Exact address string requested by the user — force this as the default query shown in the map
   const FIXED_ADDRESS = 'Osman Yılmaz Mah. Mehmet Akif Ersoy Cad. No:52 Gebze / Kocaeli / TÜRKİYE';
   // Allow overriding via Vite env vars for exact control (useful when Google queries are ambiguous)

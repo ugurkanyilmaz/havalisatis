@@ -146,7 +146,8 @@ export function buildProductHead(product, options = {}) {
     : 'https://schema.org/InStock';
   const availabilityHuman = availabilityText(availability);
   const features = parseFeatures(p);
-  const keywords = buildKeywords(p, features);
+  // Prefer explicit meta_keywords from SEO payload; fallback to auto-built keywords
+  const keywords = (p?.seo && p.seo.meta_keywords) ? String(p.seo.meta_keywords).trim() : buildKeywords(p, features);
   const localeNormalized = (locale || 'tr-TR').replace('_','-');
   const ogImage = toAbsoluteUrl(primaryImage || (images.length ? images[0] : undefined));
   const twitterCard = ogImage ? 'summary_large_image' : 'summary';

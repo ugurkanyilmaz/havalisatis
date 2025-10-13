@@ -7,6 +7,7 @@ import ProtectedImage from '../components/ProtectedImage.jsx';
 import StarRating from '../components/common/StarRating.jsx';
 import { fetchHome, fetchCategories, fetchProducts, fetchRandomSlots } from '../lib/api_calls.js';
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { applyHomeMeta } from '../lib/head_menager_home.js';
 import { Link, useNavigate } from 'react-router-dom';
 // Swiper
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -193,6 +194,7 @@ function HomeProductCard({p}){
 
 export default function Home() {
   console.log('[home] Home component render');
+  useEffect(() => { applyHomeMeta(); }, []);
   // state for dynamic home lists
   const [randCategory1, setRandCategory1] = useState(null);
   const [randItems1, setRandItems1] = useState([]);
@@ -459,8 +461,7 @@ export default function Home() {
         <HeroSlider />
       </div>
 
-  {/* Category sidebar (interactive) - not rendered on mobile */}
-  {!isMobile && <CategorySidebar visibleByScroll={sidebarVisible} />}
+  {/* Category sidebar removed from homepage (rendered on product list instead) */}
 
       {/* KEŞFET: Rastgele Kategori Slider (1) */}
       <section className="relative mt-0 pt-16 pb-6">
@@ -862,7 +863,7 @@ export default function Home() {
             <div className="bg-white rounded-xl shadow-lg border border-neutral-200 p-8 md:p-10 -mt-10 md:mt-0 md:-translate-x-16 lg:-translate-x-28 z-[2] relative">
               <p className="text-2xl md:text-3xl font-bold text-neutral-900 mb-2">Şenol</p>
               <p className="text-sm font-medium text-brand-orange uppercase tracking-wider mb-4">Keten Pnömatik</p>
-              <p className="text-neutral-700 leading-relaxed">“Satışını yaptığımız her ürünün kalitesine güveniyor, her zaman arkasında duruyoruz.”<br /><br /><span className="text-brand-orange font-semibold">#KALITELIHIZMET</span></p>
+              <p className="text-neutral-700 leading-relaxed">“Sadece en iyi kaliteyi almanızı sağlamak için, teknolojik ürünlerimizi düzenli olarak sıkı testlere tabi tutuyoruz.”<br /><br /><span className="text-brand-orange font-semibold">#KALITELIHIZMET</span></p>
             </div>
           </div>
         </div>

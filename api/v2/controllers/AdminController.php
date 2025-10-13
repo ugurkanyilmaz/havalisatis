@@ -101,6 +101,145 @@ class AdminController {
     }
 
     /**
+     * Export all products as JSON or CSV (admin only).
+     * GET params: format=json|csv (default json)
+     */
+    public function exportProducts(): void {
+        Auth::require();
+
+        $format = isset($_GET['format']) ? strtolower(trim($_GET['format'])) : 'json';
+        $pdo = $this->db->getConnection();
+
+        try {
+            $stmt = $pdo->prepare('SELECT * FROM products ORDER BY id DESC');
+            $stmt->execute();
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $date = date('Ymd_His');
+            if ($format === 'csv') {
+                // Build CSV in memory
+                $filename = "products-export-{$date}.csv";
+                header('Content-Type: text/csv; charset=utf-8');
+                header('Content-Disposition: attachment; filename=' . $filename);
+                // Output UTF-8 BOM for Excel compatibility
+                echo "\xEF\xBB\xBF";
+                $out = fopen('php://output', 'w');
+                if ($out === false) {
+                    Response::serverError('Failed to open output stream');
+                }
+                if (!empty($rows)) {
+                    // Use first row keys as header
+                    fputcsv($out, array_keys($rows[0]));
+                    foreach ($rows as $r) {
+                        // Ensure scalar values
+                        $line = array_map(function($v) {
+                            if (is_array($v) || is_object($v)) return json_encode($v, JSON_UNESCAPED_UNICODE);
+                            return $v;
+                        }, $r);
+                        fputcsv($out, $line);
+                    }
+                }
+                fclose($out);
+                exit;
+            }
+
+            // Default: JSON download
+            $filename = "products-export-{$date}.json";
+            Response::json($rows, 200, ['Content-Disposition' => 'attachment; filename=' . $filename]);
+
+        } catch (Exception $e) {
+            Response::error($e->getMessage());
+        }
+    }
+
+    /**
+     * Upload a single image file and return its URL.
+     * Expects multipart/form-data with file field named 'file'.
+     * Returns: { success: true, data: { url: '/api/v2/uploads/..' } }
+     */
+    public function uploadImage(): void {
+        Auth::require();
+
+        if (empty($_FILES['file'])) {
+            Response::badRequest('File is required');
+        }
+
+        $file = $_FILES['file'];
+        if (!empty($file['error']) && $file['error'] !== UPLOAD_ERR_OK) {
+            Response::badRequest('Upload error code: ' . $file['error']);
+        }
+
+        $tmp = $file['tmp_name'] ?? null;
+        $orig = $file['name'] ?? 'upload';
+        // Optional existing URL or filename to replace
+        $existing = $_POST['existing'] ?? $_REQUEST['existing'] ?? null;
+        if (!$tmp || !file_exists($tmp)) {
+            Response::badRequest('Temporary uploaded file not found');
+        }
+
+        // Basic validation for image mime types
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = finfo_file($finfo, $tmp);
+        finfo_close($finfo);
+        $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
+        if (!isset($allowed[$mime])) {
+            Response::badRequest('Unsupported file type: ' . $mime);
+        }
+
+        $ext = $allowed[$mime];
+        $uploadsDir = __DIR__ . '/../uploads';
+        if (!is_dir($uploadsDir)) mkdir($uploadsDir, 0755, true);
+
+        // If an existing file URL/basename is provided and it points into uploads dir,
+        // overwrite that file to avoid creating duplicates.
+        $dest = null;
+        if (!empty($existing)) {
+            // Extract basename from URL or path
+            $existingBasename = basename(parse_url($existing, PHP_URL_PATH) ?: $existing);
+            // sanitize
+            $existingBasename = preg_replace('/[^A-Za-z0-9._-]/', '', $existingBasename);
+            if ($existingBasename) {
+                $maybe = $uploadsDir . '/' . $existingBasename;
+                if (file_exists($maybe) && is_writable($maybe)) {
+                    $dest = $maybe;
+                } else {
+                    // If file exists but not writable, attempt to overwrite by unlinking
+                    if (file_exists($maybe)) {
+                        @unlink($maybe);
+                        if (!file_exists($maybe)) {
+                            $dest = $maybe;
+                        }
+                    }
+                }
+            }
+        }
+
+        if ($dest === null) {
+            // Generate filename
+            $basename = pathinfo($orig, PATHINFO_FILENAME);
+            $safeBase = preg_replace('/[^a-zA-Z0-9-_]/', '_', mb_substr($basename, 0, 50));
+            $filename = $safeBase . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+            $dest = $uploadsDir . '/' . $filename;
+        }
+
+        if (!move_uploaded_file($tmp, $dest)) {
+            // try to remove and retry
+            @unlink($dest);
+            if (!move_uploaded_file($tmp, $dest)) {
+                Response::serverError('Failed to move uploaded file');
+            }
+        }
+
+        // Build URL - try to use host info
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $finalName = basename($dest);
+        $url = $scheme . '://' . $host . '/api/v2/uploads/' . $finalName;
+
+        Response::success(['url' => $url], 'File uploaded', []);
+    }
+
+    /**
      * Delete a tag globally from products (admin only)
      * Expects JSON body: { tag: 'tagkey' }
      */
@@ -277,7 +416,7 @@ class AdminController {
         $allowedFields = [
             'parent_category', 'child_category', 'sku', 'title', 'tags', 'discount', 'list_price', 'star_rating',
             'product_description', 'feature1', 'feature2', 'feature3', 'feature4', 'feature5', 'feature6', 'feature7', 'feature8',
-            'brand', 'main_img', 'img1', 'img2', 'img3', 'img4', 'meta_title', 'meta_description', 'schema_description'
+            'brand', 'main_img', 'img1', 'img2', 'img3', 'img4', 'meta_title', 'meta_description', 'meta_keywords', 'schema_description'
         ];
         
         $inserted = 0;
@@ -326,15 +465,24 @@ class AdminController {
                 } catch (PDOException $e) {
                     // Try update on conflict
                     if (stripos($e->getMessage(), 'unique') !== false || stripos($e->getMessage(), 'constraint') !== false) {
-                        $updateFields = array_map(function($f) { return "$f = :$f"; }, $fields);
-                        $updateSql = 'UPDATE products SET ' . implode(',', $updateFields) . ' WHERE sku = :sku';
-                        $stmt = $pdo->prepare($updateSql);
-                        foreach ($row as $k => $v) {
-                            $stmt->bindValue(':' . $k, $v);
+                        // Build update excluding sku from SET clause to avoid duplicate named placeholder issues
+                        $updateFieldsNonSku = array_filter($fields, function($f) { return $f !== 'sku'; });
+                        if (empty($updateFieldsNonSku)) {
+                            // Nothing to update (only SKU provided) - treat as updated but skip SQL
+                            $updated++;
+                        } else {
+                            $updateFields = array_map(function($f) { return "$f = :$f"; }, $updateFieldsNonSku);
+                            $updateSql = 'UPDATE products SET ' . implode(',', $updateFields) . ' WHERE sku = :sku';
+                            $stmt = $pdo->prepare($updateSql);
+                            // bind only non-sku fields
+                            foreach ($updateFieldsNonSku as $k) {
+                                $stmt->bindValue(':' . $k, $row[$k]);
+                            }
+                            // bind where sku
+                            $stmt->bindValue(':sku', $row['sku']);
+                            $stmt->execute();
+                            $updated++;
                         }
-                        $stmt->bindValue(':sku', $row['sku']);
-                        $stmt->execute();
-                        $updated++;
                     } else {
                         $errors[] = ['index' => $i, 'error' => $e->getMessage()];
                     }

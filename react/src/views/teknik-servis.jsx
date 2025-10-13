@@ -1,85 +1,9 @@
 import { NavLink } from 'react-router-dom';
 import { useEffect } from 'react';
-import { setHomeHead, ENV_SITE_URL } from '../lib/head_manager.js';
+import { applyServiceMeta } from '../lib/head_menager_home.js';
 
 export default function TeknikServis(){
-  useEffect(() => {
-    setHomeHead({
-      title: 'Teknik Servis - Havalı El Aletleri Tamiri',
-      description: 'Marka farketmeksizin tüm havalı el aletleri tamiri, pnömatik alet servisi, yedek parça ve bakım hizmetleri. Hızlı ve güvenilir teknik servis.',
-      robots: 'index,follow'
-    });
-    // Add extra meta tags and JSON-LD structured data (managed by data-head-managed="keten")
-    try {
-      if (typeof document !== 'undefined') {
-        const head = document.head;
-        // Meta: keywords
-        const metaKeywords = document.createElement('meta');
-        metaKeywords.setAttribute('name', 'keywords');
-        metaKeywords.setAttribute('content', 'havalı el aletleri tamiri, pnömatik alet servisi, hava aleti yedek parça, profesyonel el aletleri bakımı, teknik servis');
-        metaKeywords.setAttribute('data-head-managed', 'keten');
-        head.appendChild(metaKeywords);
-
-        // Meta: author
-        const metaAuthor = document.createElement('meta');
-        metaAuthor.setAttribute('name', 'author');
-        metaAuthor.setAttribute('content', 'Keten Teknik Servis');
-        metaAuthor.setAttribute('data-head-managed', 'keten');
-        head.appendChild(metaAuthor);
-
-        // OG type: service
-        const metaOgType = document.createElement('meta');
-        metaOgType.setAttribute('property', 'og:type');
-        metaOgType.setAttribute('content', 'service');
-        metaOgType.setAttribute('data-head-managed', 'keten');
-        head.appendChild(metaOgType);
-
-        // JSON-LD graph: LocalBusiness + Service
-        // Use ENV_SITE_URL so JSON-LD never points to localhost in dev
-        const origin = ENV_SITE_URL;
-        const localBusiness = {
-          '@type': 'LocalBusiness',
-          name: 'Keten Teknik Servis',
-          '@id': origin ? `${origin}#organization` : undefined,
-          url: origin || undefined,
-          telephone: ['+90 541 452 60 58', '+90 262 643 43 39'],
-          email: 'info@ketenpnomatik.com.tr',
-          address: {
-            '@type': 'PostalAddress',
-            streetAddress: 'Osman Yılmaz Mah. Mehmet Akif Ersoy Cad. No:52',
-            addressLocality: 'Gebze',
-            postalCode: '41400',
-            addressRegion: 'Kocaeli',
-            addressCountry: 'TR'
-          },
-          openingHoursSpecification: [
-            { '@type': 'OpeningHoursSpecification', 'dayOfWeek': ['Monday','Tuesday','Wednesday','Thursday','Friday'], 'opens': '09:00', 'closes': '18:00' },
-            { '@type': 'OpeningHoursSpecification', 'dayOfWeek': 'Saturday', 'opens': '09:00', 'closes': '13:00' }
-          ],
-          serviceArea: 'TR'
-        };
-
-        const service = {
-          '@type': 'Service',
-          name: 'Havalı El Aletleri Teknik Servis',
-          description: 'Marka farketmeksizin tüm havalı el aletleri tamiri, bakım ve yedek parça temini.',
-          provider: { '@type': 'LocalBusiness', name: 'Keten Teknik Servis' }
-        };
-
-        const graph = {
-          '@context': 'https://schema.org',
-          '@graph': [localBusiness, service]
-        };
-        const s = document.createElement('script');
-        s.type = 'application/ld+json';
-        s.text = JSON.stringify(graph);
-        s.setAttribute('data-head-managed', 'keten');
-        head.appendChild(s);
-      }
-    } catch (err) {
-      // ignore non-critical head injection errors
-    }
-  }, []);
+  useEffect(() => { applyServiceMeta(); }, []);
   return (
     <div className="max-w-7xl mx-auto px-6 py-12">
       <header className="mb-8">

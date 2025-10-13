@@ -6,6 +6,7 @@ import UrunDetay from './urun-detay.jsx';
 import Iletisim from './iletisim.jsx';
 import TeknikServis from './teknik-servis.jsx';
 import AdminPage from './admin.jsx';
+import IadePolitikasi from './iade-politikasi.jsx';
 
 
 export const router = createBrowserRouter([
@@ -19,6 +20,7 @@ export const router = createBrowserRouter([
 			{ path: '/urunler/:sku', element: <UrunDetay /> },
 			{ path: '/iletisim', element: <Iletisim /> },
 			{ path: '/teknik-servis', element: <TeknikServis /> },
+			{ path: '/iade-politikasi', element: <IadePolitikasi /> },
 			{ path: '/admin', element: <AdminPage /> },
 		]
 	},

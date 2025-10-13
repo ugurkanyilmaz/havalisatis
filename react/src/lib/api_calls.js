@@ -96,6 +96,7 @@ function normalizeProduct(p) {
 		const seo = {};
 		if (out.meta_title) seo.meta_title = out.meta_title;
 		if (out.meta_description) seo.meta_description = out.meta_description;
+		if (out.meta_keywords) seo.meta_keywords = out.meta_keywords;
 		if (out.schema_description) seo.schema_description = out.schema_description;
 		if (Object.keys(seo).length) out.seo = seo;
 	}

@@ -50,6 +50,14 @@ try {
         case 'bulk_upload':
             $controller->bulkUpload();
             break;
+
+        case 'export_products':
+            $controller->exportProducts();
+            break;
+
+        case 'upload_image':
+            $controller->uploadImage();
+            break;
             
         case 'init':
             $controller->init();

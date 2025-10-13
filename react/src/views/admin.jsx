@@ -151,6 +151,21 @@ export default function AdminPanel() {
     }
   }
 
+  // Upload a single image file to the admin upload endpoint and return URL
+  async function uploadImageFile(file) {
+    if (!file) throw new Error('No file');
+    const fd = new FormData();
+    fd.append('file', file);
+    const res = await fetch('/api/v2/admin.php?action=upload_image', { method: 'POST', body: fd, credentials: 'include' });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || 'Upload failed');
+    }
+    const j = await res.json();
+    if (!j.success || !j.data?.url) throw new Error(j.message || 'Invalid response');
+    return j.data.url;
+  }
+
   /**
    * TagsManager component (inline in admin view)
    */
@@ -339,6 +354,27 @@ export default function AdminPanel() {
                 {refreshMessage}
               </div>
             )}
+            {/* Export buttons (JSON / CSV) */}
+            <div className="mt-3 flex gap-2">
+              <button className="px-2 py-1 bg-green-600 text-white rounded text-sm" onClick={async () => {
+                try {
+                  const res = await fetch('/api/v2/admin.php?action=export_products&format=json', { credentials: 'include' });
+                  if (!res.ok) { const t = await res.text(); alert('Export failed: ' + t); return; }
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a'); a.href = url; a.download = 'products-export.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+                } catch (e) { alert('Export error: ' + e.message); }
+              }}>JSON İndir</button>
+              <button className="px-2 py-1 bg-green-700 text-white rounded text-sm" onClick={async () => {
+                try {
+                  const res = await fetch('/api/v2/admin.php?action=export_products&format=csv', { credentials: 'include' });
+                  if (!res.ok) { const t = await res.text(); alert('Export failed: ' + t); return; }
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a'); a.href = url; a.download = 'products-export.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+                } catch (e) { alert('Export error: ' + e.message); }
+              }}>CSV İndir</button>
+            </div>
           </div>
         </div>
         <div className="flex items-center justify-between mb-4">
@@ -566,15 +602,39 @@ export default function AdminPanel() {
 
               {/* Images */}
               <div className="col-span-2 grid grid-cols-2 gap-4">
-                {["main_img", "img1", "img2", "img3", "img4"].map((field) => (
+                {['main_img','img1','img2','img3','img4'].map((field) => (
                   <div key={field}>
                     <label className="block text-sm font-medium">{field}</label>
-                    <input
-                      type="text"
-                      value={form?.[field] || ''}
-                      onChange={(e) => setForm(prev => ({ ...prev, [field]: e.target.value }))}
-                      className="w-full border rounded px-3 py-2 text-sm"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={form?.[field] || ''}
+                        onChange={(e) => setForm(prev => ({ ...prev, [field]: e.target.value }))}
+                        className="flex-1 border rounded px-3 py-2 text-sm"
+                      />
+                      <div className="flex flex-col gap-1">
+                        <input type="file" accept="image/*" id={`file_${field}`} className="text-xs" />
+                        <button type="button" className="px-2 py-1 bg-gray-200 rounded text-xs" onClick={async () => {
+                          const input = document.getElementById(`file_${field}`);
+                          if (!input || !input.files || input.files.length === 0) { alert('Lütfen bir dosya seçin'); return; }
+                          const file = input.files[0];
+                          try {
+                            // send existing URL so backend can overwrite
+                            const fd = new FormData(); fd.append('file', file);
+                            const existing = form?.[field] || '';
+                            if (existing) fd.append('existing', existing);
+                            const res = await fetch('/api/v2/admin.php?action=upload_image', { method: 'POST', body: fd, credentials: 'include' });
+                            if (!res.ok) { const t = await res.text(); throw new Error(t || 'Upload failed'); }
+                            const j = await res.json();
+                            if (!j.success || !j.data?.url) throw new Error(j.message || 'Invalid response');
+                            const url = j.data.url;
+                            setForm(prev => ({ ...prev, [field]: url }));
+                            alert('Yüklendi: ' + url);
+                          } catch (err) { alert('Upload failed: ' + err.message); }
+                        }}>Yükle</button>
+                      </div>
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">Örn: https://... veya yükleyin</div>
                   </div>
                 ))}
               </div>
@@ -586,6 +646,16 @@ export default function AdminPanel() {
                   type="text"
                   value={form?.meta_title || ''}
                   onChange={(e) => setForm(prev => ({ ...prev, meta_title: e.target.value }))}
+                  className="w-full border rounded px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium">Meta Keywords</label>
+                <input
+                  type="text"
+                  value={form?.meta_keywords || ''}
+                  onChange={(e) => setForm(prev => ({ ...prev, meta_keywords: e.target.value }))}
+                  placeholder="örn: vidalar, somun, havalı alet"
                   className="w-full border rounded px-3 py-2 text-sm"
                 />
               </div>

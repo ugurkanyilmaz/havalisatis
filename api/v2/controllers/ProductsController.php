@@ -247,8 +247,9 @@ class ProductsController {
         $allowedFields = [
             'parent_category', 'child_category', 'sku', 'title', 'tags', 'discount', 'list_price', 'star_rating',
             'product_description', 'feature1', 'feature2', 'feature3', 'feature4', 'feature5', 'feature6', 'feature7', 'feature8',
-            'brand', 'main_img', 'img1', 'img2', 'img3', 'img4', 'meta_title', 'meta_description', 'schema_description'
+            'brand', 'main_img', 'img1', 'img2', 'img3', 'img4', 'meta_title', 'meta_description', 'meta_keywords', 'schema_description'
         ];
+
         
         $row = [];
         foreach ($allowedFields as $f) {
