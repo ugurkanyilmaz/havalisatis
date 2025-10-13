@@ -12,12 +12,6 @@ Small storefront and admin panel for selling pneumatic tools. This repository co
 - `sql/` - database schema scripts (create_products.sql, create_users.sql)
 - misc scripts: `keep_alive.sh`, `diagnostic.php`, `excel_tojson.py`
 
-## New/Important features (recent changes)
-
-- Admin export: admin panel includes JSON/CSV export buttons for all products (visible in the admin sidebar).
-- Image uploads: admin UI supports uploading product images (backend stores them under `api/v2/uploads/` and returns a public URL). Admin can provide `existing` to overwrite files.
-- meta_keywords: products now have a `meta_keywords` field. The admin UI exposes a `Meta Keywords` input. The frontend `head_manager` will use `seo.meta_keywords` when present to render `<meta name="keywords" ...>` on product pages.
-- Iade Politikası page: a Turkish return policy page is available at `/iade-politikasi`.
 
 ## Quick setup (development)
 
@@ -67,16 +61,7 @@ Open the site at `http://localhost:5173` (vite default) or the port Vite uses.
 - File uploads: the admin upload endpoint is `api/v2/admin.php?action=upload_image` and returns JSON `{ success:true, data:{url: 'https://.../api/v2/uploads/xxx.jpg'} }`.
 - Export: from the admin sidebar you can download all products as JSON or CSV.
 
-## Iade (Return) Policy page
-
-- The project contains a basic return policy at `/iade-politikasi`. Edit `react/src/views/iade-politikasi.jsx` to change the text or contact info.
-
 ## Notes / Next steps
 
 - If you deploy to a production environment, configure a proper uploads directory (outside webroot or with secure access as needed) and set correct file permissions.
-- Consider versioning or migration scripts for DB changes (e.g., `meta_keywords`). A simple migration file can be added to `sql/migrations/`.
 - You may want to protect admin endpoints behind HTTPS and stronger auth in production.
-
-## Contact
-
-If you want me to add a migration file, wire a footer link to the iade page, or run a local build and smoke test, tell me and I'll do it.
