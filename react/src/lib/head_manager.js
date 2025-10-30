@@ -1,6 +1,7 @@
 /* -------------------- Environment & Helpers -------------------- */
 // Vite env erişimi (import.meta.env) üzerinden; undefined ise güvenli default.
 const VENV = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : {};
+import { SOCIAL_LINKS } from './socialLinks.js';
 export const ENV_SITE_NAME = VENV.VITE_SITE_NAME || 'Havalı Endüstri';
 // Site URL: prefer explicit env; if missing, default to live domain (never localhost) to avoid leaking dev URLs
 const runtimeOrigin = (typeof window !== 'undefined') ? window.location.origin : '';
@@ -159,13 +160,21 @@ export function buildProductHead(product, options = {}) {
   const twitterCard = ogImage ? 'summary_large_image' : 'summary';
 
   // Price computation: mirror UI logic (list_price + discount)
-  const listPrice = (p && p.list_price) ? Number(p.list_price) : null;
+  const listPrice = (p && (p.list_price !== undefined && p.list_price !== null)) ? Number(p.list_price) : null;
   const discountPct = (p && p.discount) ? Number(p.discount) : 0;
-  // Use discounted price (if discount exists), otherwise list price
-  const discountedPrice = listPrice && discountPct > 0 ? Math.round((listPrice * (100 - discountPct)) / 100) : null;
-  // Only expose a price when there is an actual discount (user requested)
-  const priceToUse = (typeof discountedPrice === 'number' && !Number.isNaN(discountedPrice)) ? discountedPrice : null;
-  // Force currency label for metadata to TL when price present; use TRY in JSON-LD per request
+  // Use discounted price when a discount exists
+  const discountedPrice = (listPrice !== null && discountPct > 0) ? Math.round((listPrice * (100 - discountPct)) / 100) : null;
+  // Expose a numeric price in JSON-LD when either a discount exists or the product is sold at list price (> 0)
+  let priceToUse = null;
+  if (typeof discountedPrice === 'number' && !Number.isNaN(discountedPrice)) {
+    priceToUse = discountedPrice;
+  } else if (listPrice !== null && !Number.isNaN(listPrice) && Number(listPrice) > 0) {
+    priceToUse = Math.round(listPrice);
+  } else {
+    priceToUse = null; // no numeric price to expose (e.g., listPrice === 0 meaning "price on request")
+  }
+  const isPriceOnRequest = (listPrice === 0);
+  // Force currency label for metadata to TL when numeric price present; use TRY in JSON-LD per request
   const priceCurrencyForMeta = priceToUse !== null ? 'TL' : currency;
   const priceCurrencyForJsonLd = priceToUse !== null ? 'TRY' : currency;
 
@@ -187,12 +196,46 @@ export function buildProductHead(product, options = {}) {
     offers: {
       '@type': 'Offer',
       url: canonical || url || undefined,
-      priceCurrency: priceToUse !== null ? priceCurrencyForJsonLd : currency,
+      // Only include numeric price when available
+      priceCurrency: priceToUse !== null ? priceCurrencyForJsonLd : undefined,
       price: priceToUse !== null ? String(priceToUse) : undefined,
       availability,
       itemCondition: 'https://schema.org/NewCondition',
     },
   };
+
+  // Enhance offers: add shippingDetails and return policy and manufacturer when available
+  if (!jsonLdProduct.offers) jsonLdProduct.offers = { '@type': 'Offer' };
+  // Manufacturer: use brand name or provided manufacturer field
+  const manufacturerName = p?.manufacturer || brandName || null;
+  if (manufacturerName) {
+    jsonLdProduct.manufacturer = { '@type': 'Organization', name: manufacturerName };
+  }
+  // Shipping details example (free shipping by default)
+  jsonLdProduct.offers.shippingDetails = {
+    '@type': 'OfferShippingDetails',
+    'shippingRate': {
+      '@type': 'MonetaryAmount',
+      'value': '0',
+      'currency': 'TRY'
+    }
+  };
+  // Return policy example
+  jsonLdProduct.offers.hasMerchantReturnPolicy = {
+    '@type': 'MerchantReturnPolicy',
+    'returnPolicyCategory': 'https://schema.org/MerchantReturnFiniteReturnWindow',
+    'merchantReturnDays': 14
+  };
+
+  // If the product is 'price on request' (list_price === 0), add a descriptive PriceSpecification
+  // so search engines can understand that price is not publicly available.
+  if (isPriceOnRequest) {
+    jsonLdProduct.offers.priceSpecification = {
+      '@type': 'PriceSpecification',
+      'priceCurrency': priceCurrencyForJsonLd || 'TRY',
+      'description': 'Fiyat için teklif alınız'
+    };
+  }
 
   // Breadcrumb Schema
   const jsonLdBreadcrumbs = {
@@ -221,6 +264,29 @@ export function buildProductHead(product, options = {}) {
       availableLanguage: ['tr']
     }]
   };
+
+  // Add email and address and social links if available
+  try {
+    // Email from contact page
+    const orgEmail = 'info@ketenpnomatik.com.tr';
+    if (orgEmail) jsonLdOrg.email = orgEmail;
+    // Primary physical address (merkez)
+    jsonLdOrg.address = {
+      '@type': 'PostalAddress',
+      'streetAddress': 'Osman Yılmaz Mah. Mehmet Akif Ersoy Cad. No:52',
+      'addressLocality': 'Gebze',
+      'addressRegion': 'Kocaeli',
+      'postalCode': '',
+      'addressCountry': 'TR'
+    };
+    // sameAs from social links (filter known socials)
+    const sameAs = [];
+    if (SOCIAL_LINKS?.facebook) sameAs.push(SOCIAL_LINKS.facebook);
+    if (SOCIAL_LINKS?.instagram) sameAs.push(SOCIAL_LINKS.instagram);
+    if (SOCIAL_LINKS?.youtube) sameAs.push(SOCIAL_LINKS.youtube);
+    // Do not assume LinkedIn exists; leave room for future env override
+    if (sameAs.length) jsonLdOrg.sameAs = sameAs;
+  } catch (e) { /* ignore */ }
 
   // Website Schema
   const jsonLdWebsite = {
@@ -269,17 +335,20 @@ export function buildProductHead(product, options = {}) {
       brandName ? { name: 'product:brand', content: brandName } : null,
       p?.sku ? { name: 'product:sku', content: p.sku } : null,
   availabilityHuman ? { name: 'product:availability', content: availabilityHuman } : null,
-  // Price metas (if available)
+  // Price metas (numeric price only). For price-on-request (list_price===0) add a small note meta.
   priceToUse !== null ? { name: 'product:price:amount', content: String(priceToUse) } : null,
   priceToUse !== null ? { name: 'product:price:currency', content: priceCurrencyForMeta } : null,
   priceToUse !== null ? { property: 'og:price:amount', content: String(priceToUse) } : null,
   priceToUse !== null ? { property: 'og:price:currency', content: priceCurrencyForMeta } : null,
+  isPriceOnRequest ? { name: 'product:price:note', content: 'Fiyat için teklif alınız' } : null,
       updatedTime ? { name: 'article:modified_time', content: updatedTime } : null,
     ].filter(Boolean),
     // Provide canonical link and an hreflang alternate link for Turkish content
     link: [
       canonical ? { rel: 'canonical', href: canonical } : null,
       canonical ? { rel: 'alternate', href: canonical, hreflang: 'tr' } : null,
+      // Preload primary Open Graph / LCP image when available
+      ogImage ? { rel: 'preload', href: ogImage, as: 'image' } : null,
     ].filter(Boolean),
     jsonLd: [jsonLdProduct, jsonLdBreadcrumbs, jsonLdOrg, jsonLdWebsite],
     analytics: analyticsId ? `

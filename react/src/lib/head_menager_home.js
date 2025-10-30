@@ -1,6 +1,7 @@
 // head_menager_home.js
 // Small adapter that applies page-specific head/meta data using the shared head manager.
 import { setHomeHead, clearHead } from './head_manager.js';
+import { SOCIAL_LINKS } from './socialLinks.js';
 
 // These must match the internal constants used by head_manager.js so our extra metas
 // are removed by clearHead()/removeManaged(). Keep in sync with head_manager.js
@@ -38,14 +39,14 @@ export function applyHomeMeta() {
   if (typeof document === 'undefined') return;
   clearHead();
   setHomeHead({
-    title: 'Keten Pnömatik | Havalı El Aletleri, Elektrikli Aletler ve Teknik Servis',
-    description: 'Keten Pnömatik, profesyonel kullanıma uygun havalı el aletleri, elektrikli el aletleri, tork aletleri ve endüstriyel montaj ekipmanları satışı yapar. Uygun fiyatlı ürünler, yedek parça ve teknik servis desteği ile Türkiye genelinde hizmet veriyoruz.',
+    title: 'Havalı El Aletleri Fiyatları ve Modelleri | Online Satış | Keten Pnömatik',
+    description: 'İhtiyacınız olan tüm havalı ve akülü el aletleri en uygun fiyatlarla bir tık uzağınızda. Geniş ürün yelpazemizi inceleyin, güvenli alışverişin keyfini çıkarın.',
   });
 
-  addManagedMeta('keywords', 'keten pnömatik, havalı el aletleri, elektrikli el aletleri, pnömatik ürünler, endüstriyel aletler, tork aletleri, somun sıkma makinesi, darbeli vidalama, tork tornavida, hava tabancası, endüstriyel ekipman, montaj aletleri, pnömatik sistemler, hava basınçlı aletler, profesyonel el aletleri, sanayi tipi el aletleri, endüstriyel servis, teknik destek');
-  addManagedMeta('schema:description', 'Keten Pnömatik; havalı, elektrikli ve tork kontrollü el aletleri satışında uzmanlaşmış, sanayi tipi montaj çözümleri ve teknik servis hizmetleri sunan bir markadır.');
+  addManagedMeta('keywords', 'keten pnömatik, havalı el aletleri, Akülü El Aletleri, pnömatik ürünler, endüstriyel aletler, tork aletleri, somun sıkma makinesi, darbeli vidalama, tork tornavida, hava tabancası, endüstriyel ekipman, montaj aletleri, pnömatik sistemler, hava basınçlı aletler, profesyonel el aletleri, sanayi tipi el aletleri, endüstriyel servis, teknik destek');
+  addManagedMeta('schema:description', 'Profesyonel ve endüstriyel kullanıma yönelik havalı el aletleri (pnömatik aletler), aksesuarları ve yedek parçaları konusunda uzmanlaşmış online e-ticaret mağazası.');
   // JSON-LD Schema.org (Organization + Service summary)
-  addManagedJsonLd({
+  const orgLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "Keten Pnömatik",
@@ -57,7 +58,23 @@ export function applyHomeMeta() {
       "contactType": "sales",
       "availableLanguage": ["tr"]
     }]
-  });
+  };
+  // Add email/address and sameAs from social links
+  orgLd.email = 'info@ketenpnomatik.com.tr';
+  orgLd.address = {
+    '@type': 'PostalAddress',
+    'streetAddress': 'Osman Yılmaz Mah. Mehmet Akif Ersoy Cad. No:52',
+    'addressLocality': 'Gebze',
+    'addressRegion': 'Kocaeli',
+    'postalCode': '',
+    'addressCountry': 'TR'
+  };
+  const sa = [];
+  if (SOCIAL_LINKS?.facebook) sa.push(SOCIAL_LINKS.facebook);
+  if (SOCIAL_LINKS?.instagram) sa.push(SOCIAL_LINKS.instagram);
+  if (SOCIAL_LINKS?.youtube) sa.push(SOCIAL_LINKS.youtube);
+  if (sa.length) orgLd.sameAs = sa;
+  addManagedJsonLd(orgLd);
 }
 
 export function applyProductsMeta() {
@@ -110,15 +127,36 @@ export function applyContactMeta() {
 
   addManagedMeta('keywords', 'keten iletişim, teknik servis iletişim, havalı el aleti iletişim, elektrikli alet desteği, keten müşteri hizmetleri, keten pnömatik telefon, keten e-posta, gebze teknik servis, satış destek hattı, ürün teklifi, servis kaydı oluşturma, endüstriyel servis iletişimi');
   addManagedMeta('schema:description', 'Keten Pnömatik iletişim sayfası, kullanıcıların satış ve servis konularında destek almak, servis kaydı oluşturmak veya teklif talebinde bulunmak için başvurabileceği resmi iletişim kanallarını içerir.');
-  addManagedJsonLd({
+  // Add full Organization schema + ContactPoint for contact page
+  const contactOrg = {
     "@context": "https://schema.org",
-    "@type": "ContactPoint",
-    "telephone": "0262 643 43 39",
-    "contactType": "customer support",
-    "areaServed": "TR",
-    "availableLanguage": ["Turkish"],
+    "@type": "Organization",
+    "name": "Keten Pnömatik",
+    "url": "https://havalielaletlerisatis.com",
     "description": "Keten Pnömatik iletişim sayfası, kullanıcıların satış ve servis konularında destek almak, servis kaydı oluşturmak veya teklif talebinde bulunmak için başvurabileceği resmi iletişim kanallarını içerir.",
-  });
+    "contactPoint": [{
+      "@type": "ContactPoint",
+      "telephone": "0262 643 43 39",
+      "contactType": "customer support",
+      "areaServed": "TR",
+      "availableLanguage": ["Turkish"]
+    }]
+  };
+  contactOrg.email = 'info@ketenpnomatik.com.tr';
+  contactOrg.address = {
+    '@type': 'PostalAddress',
+    'streetAddress': 'Osman Yılmaz Mah. Mehmet Akif Ersoy Cad. No:52',
+    'addressLocality': 'Gebze',
+    'addressRegion': 'Kocaeli',
+    'postalCode': '',
+    'addressCountry': 'TR'
+  };
+  const contactSa = [];
+  if (SOCIAL_LINKS?.facebook) contactSa.push(SOCIAL_LINKS.facebook);
+  if (SOCIAL_LINKS?.instagram) contactSa.push(SOCIAL_LINKS.instagram);
+  if (SOCIAL_LINKS?.youtube) contactSa.push(SOCIAL_LINKS.youtube);
+  if (contactSa.length) contactOrg.sameAs = contactSa;
+  addManagedJsonLd(contactOrg);
 }
 
 // Export defaults for convenience

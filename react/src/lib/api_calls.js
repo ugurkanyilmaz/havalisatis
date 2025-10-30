@@ -189,17 +189,9 @@ export async function fetchHome(baseUrl = '/api/v2/home.php') {
 	}
 }
 
-export async function fetchRandomSlots(baseUrl = '/api/v2/random_slots.php') {
-	const res = await fetchWithRetry(baseUrl);
-	if (!res.ok) throw new Error('Failed to fetch random slots');
-	const data = await res.json();
-	// Expect { slot1: { category: {parent, child}, items: [...] }, slot2: {...} }
-	if (data) {
-		if (data.slot1 && Array.isArray(data.slot1.items)) data.slot1.items = data.slot1.items.map(normalizeProduct);
-		if (data.slot2 && Array.isArray(data.slot2.items)) data.slot2.items = data.slot2.items.map(normalizeProduct);
-	}
-	return data;
-}
+// fetchRandomSlots removed (endpoint archived). If you need similar functionality,
+// prefer server-side precomputed cache or a lightweight endpoint that returns
+// prefiltered items to avoid expensive full-table scans.
 
 // Fetch all products across pages (respects backend max per_page). Useful when we need the full list.
 export async function fetchAllProducts({ parent, child, q } = {}, baseUrl = '/api/v2/products.php') {

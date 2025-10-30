@@ -42,9 +42,10 @@ return [
     // If DB_SOCKET is set, 'localhost' will use the socket; otherwise keep fast TCP with 127.0.0.1
     'host' => getenv('DB_HOST') ?: (getenv('DB_SOCKET') ? 'localhost' : '127.0.0.1'),
     'port' => (int)(getenv('DB_PORT') ?: 3306),
-    'database' => getenv('DB_DATABASE') ?: 'u2415836_satis',
-    'username' => getenv('DB_USERNAME') ?: 'u2415836_keten',
-    'password' => getenv('DB_PASSWORD') ?: 'G7!r9v@Qx2#LhP1w',
+    // Use environment variables only for sensitive credentials. Do NOT store plaintext secrets in code.
+    'database' => getenv('DB_DATABASE') ?: null,
+    'username' => getenv('DB_USERNAME') ?: null,
+    'password' => getenv('DB_PASSWORD') ?: null,
     'charset' => 'utf8mb4',
     'collation' => 'utf8mb4_unicode_ci',
     'options' => $options,

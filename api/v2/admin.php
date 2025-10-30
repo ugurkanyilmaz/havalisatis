@@ -58,6 +58,10 @@ try {
         case 'upload_image':
             $controller->uploadImage();
             break;
+
+        case 'generate_feed':
+            $controller->generateGoogleFeed();
+            break;
             
         case 'init':
             $controller->init();

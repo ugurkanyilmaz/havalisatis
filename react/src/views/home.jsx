@@ -5,7 +5,7 @@ import senolbeyImg from '../components/senolbey.jpg';
 import HeroSlider from '../components/HeroSlider.jsx';
 import ProtectedImage from '../components/ProtectedImage.jsx';
 import StarRating from '../components/common/StarRating.jsx';
-import { fetchHome, fetchCategories, fetchProducts, fetchRandomSlots } from '../lib/api_calls.js';
+import { fetchHome, fetchCategories, fetchProducts } from '../lib/api_calls.js';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { applyHomeMeta } from '../lib/head_menager_home.js';
 import { Link, useNavigate } from 'react-router-dom';
@@ -196,17 +196,6 @@ export default function Home() {
   console.log('[home] Home component render');
   useEffect(() => { applyHomeMeta(); }, []);
   // state for dynamic home lists
-  const [randCategory1, setRandCategory1] = useState(null);
-  const [randItems1, setRandItems1] = useState([]);
-  const [randLoading1, setRandLoading1] = useState(true);
-  const [randError1, setRandError1] = useState('Veri alınamadı');
-  const [randCategory2, setRandCategory2] = useState(null);
-  const [randItems2, setRandItems2] = useState([]);
-  const [randLoading2, setRandLoading2] = useState(true);
-  const [randError2, setRandError2] = useState('Veri alınamadı');
-  // refs to skip the per-category fetch effects when we perform a combined fetch
-  const skipRandFetch1 = useRef(false);
-  const skipRandFetch2 = useRef(false);
   const [popular, setPopular] = useState([]);
   const [popLoading, setPopLoading] = useState(true);
   const [popError, setPopError] = useState('');
@@ -223,175 +212,11 @@ export default function Home() {
       setPopError('Veri alınamadı');
     }).finally(()=> setPopLoading(false));
 
-    // Try a single request that returns two slots (server-side optimization)
-    fetchRandomSlots().then(data => {
-      if (data && (data.slot1 || data.slot2)) {
-        if (data.slot1) {
-          setRandCategory1({ parent: data.slot1.category.parent, child: data.slot1.category.child });
-          setRandItems1(data.slot1.items || []);
-          setRandLoading1(false); setRandError1('');
-          console.log('[home] initial slots: set slot1 from random_slots', data.slot1.category);
-        }
-        if (data.slot2) {
-          setRandCategory2({ parent: data.slot2.category.parent, child: data.slot2.category.child });
-          setRandItems2(data.slot2.items || []);
-          setRandLoading2(false); setRandError2('');
-          console.log('[home] initial slots: set slot2 from random_slots', data.slot2.category);
-        }
-        return;
-      }
-
-      // Fallback to legacy flow if random_slots isn't available
-      fetchCategories().then(cats => {
-        console.log('[home] fetched categories count', Array.isArray(cats) ? cats.length : typeof cats, Array.isArray(cats) ? cats.slice(0,3) : cats);
-        const childCats = cats.filter(x => x.child_category).map(x => ({ name: x.child_category, child: x.child_category, parent: x.parent_category }));
-        if (childCats.length === 0) return;
-        const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-        let a = pick(childCats);
-        let b = pick(childCats);
-        let tries = 0;
-        while (b && a && b.child === a.child && tries < 8 && childCats.length > 1) { b = pick(childCats); tries++; }
-
-        if (a) { setRandCategory1(a); setRandLoading1(true); setRandError1(''); console.log('[home] set randCategory1', a); }
-        if (b) { setRandCategory2(b); setRandLoading2(true); setRandError2(''); console.log('[home] set randCategory2', b); }
-      }).catch((err) => { console.error('[home] fetchCategories error', err); });
-    }).catch((err) => {
-      console.warn('[home] fetchRandomSlots failed, falling back to categories', err);
-      // fallback to categories path
-      fetchCategories().then(cats => {
-        console.log('[home] fetched categories count', Array.isArray(cats) ? cats.length : typeof cats, Array.isArray(cats) ? cats.slice(0,3) : cats);
-        const childCats = cats.filter(x => x.child_category).map(x => ({ name: x.child_category, child: x.child_category, parent: x.parent_category }));
-        if (childCats.length === 0) return;
-        const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-        let a = pick(childCats);
-        let b = pick(childCats);
-        let tries = 0;
-        while (b && a && b.child === a.child && tries < 8 && childCats.length > 1) { b = pick(childCats); tries++; }
-
-        if (a) { setRandCategory1(a); setRandLoading1(true); setRandError1(''); console.log('[home] set randCategory1', a); }
-        if (b) { setRandCategory2(b); setRandLoading2(true); setRandError2(''); console.log('[home] set randCategory2', b); }
-      }).catch((err) => { console.error('[home] fetchCategories error', err); });
-    });
+    // fetch home data (popular & special prices)
+    // random category/slot logic removed
   }, []);
 
-  // When randCategory1 changes, fetch products for slot 1
-  useEffect(() => {
-    console.log('[home] useEffect randCategory1 triggered', { randCategory1, skip: skipRandFetch1.current });
-    if (!randCategory1) return;
-    if (skipRandFetch1.current) return; // combined fetch already handled this slot
-    let mounted = true;
-    (async () => {
-      setRandLoading1(true);
-      setRandError1('');
-      try {
-        const products = await fetchProducts({ parent: randCategory1.parent, child: randCategory1.child, per_page: 12 }).catch(() => ({ items: [] }));
-        if (!mounted) return;
-        if (products && Array.isArray(products.items) && products.items.length > 0) {
-          setRandItems1(products.items);
-        } else {
-          const byParent = await fetchProducts({ parent: randCategory1.parent, per_page: 200 }).catch(() => ({ items: [] }));
-          if (!mounted) return;
-          const norm = (s) => (s || '').toString().toLowerCase().replace(/[şŞ]/g,'s').replace(/[ıİ]/g,'i').replace(/[ğĞ]/g,'g').replace(/[üÜ]/g,'u').replace(/[öÖ]/g,'o').replace(/[çÇ]/g,'c').replace(/[^a-z0-9]/g,'');
-          const want = norm(randCategory1.child);
-          const filtered = (byParent.items || []).filter(it => {
-            const child = it.child_category || '';
-            return norm(child).includes(want) || norm(child).replace(/\s+/g,'').includes(want.replace(/\s+/g,''));
-          });
-          setRandItems1(filtered.slice(0, 12));
-        }
-      } catch (err) {
-        if (mounted) {
-          setRandItems1([]);
-          setRandError1('Ürünler yüklenemedi');
-        }
-      } finally {
-        if (mounted) setRandLoading1(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, [randCategory1]);
-
-  // When randCategory2 changes, fetch products for slot 2
-  useEffect(() => {
-    console.log('[home] useEffect randCategory2 triggered', { randCategory2, skip: skipRandFetch2.current });
-    if (!randCategory2) return;
-    if (skipRandFetch2.current) return; // combined fetch already handled this slot
-    let mounted = true;
-    (async () => {
-      setRandLoading2(true);
-      setRandError2('');
-      try {
-        const products = await fetchProducts({ parent: randCategory2.parent, child: randCategory2.child, per_page: 12 }).catch(() => ({ items: [] }));
-        if (!mounted) return;
-        if (products && Array.isArray(products.items) && products.items.length > 0) {
-          setRandItems2(products.items);
-        } else {
-          const byParent = await fetchProducts({ parent: randCategory2.parent, per_page: 200 }).catch(() => ({ items: [] }));
-          if (!mounted) return;
-          const norm = (s) => (s || '').toString().toLowerCase().replace(/[şŞ]/g,'s').replace(/[ıİ]/g,'i').replace(/[ğĞ]/g,'g').replace(/[üÜ]/g,'u').replace(/[öÖ]/g,'o').replace(/[çÇ]/g,'c').replace(/[^a-z0-9]/g,'');
-          const want = norm(randCategory2.child);
-          const filtered = (byParent.items || []).filter(it => {
-            const child = it.child_category || '';
-            return norm(child).includes(want) || norm(child).replace(/\s+/g,'').includes(want.replace(/\s+/g,''));
-          });
-          setRandItems2(filtered.slice(0, 12));
-        }
-      } catch (err) {
-        if (mounted) {
-          setRandItems2([]);
-          setRandError2('Ürünler yüklenemedi');
-        }
-      } finally {
-        if (mounted) setRandLoading2(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, [randCategory2]);
-
-  // load random slot (1 or 2)
-  async function loadRandomSlot(slot = 1) {
-    const setLoading = slot === 1 ? setRandLoading1 : setRandLoading2;
-    const setError = slot === 1 ? setRandError1 : setRandError2;
-    const setCategory = slot === 1 ? setRandCategory1 : setRandCategory2;
-    const setItems = slot === 1 ? setRandItems1 : setRandItems2;
-
-    setLoading(true); setError('');
-    try {
-      const cats = await fetchCategories();
-      const childCats = cats.filter(x => x.child_category).map(x => ({ name: x.child_category, child: x.child_category, parent: x.parent_category }));
-      if (childCats.length === 0) { setError('Kategori yok'); return; }
-      const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-      let chosen = pick(childCats);
-      // try to avoid selecting same as the other slot
-      if (slot === 1 && randCategory2 && chosen.child === randCategory2.child && childCats.length>1) {
-        let tries=0; while(chosen.child === randCategory2.child && tries<8) { chosen = pick(childCats); tries++; }
-      }
-      if (slot === 2 && randCategory1 && chosen.child === randCategory1.child && childCats.length>1) {
-        let tries=0; while(chosen.child === randCategory1.child && tries<8) { chosen = pick(childCats); tries++; }
-      }
-      setCategory(chosen);
-      // primary attempt with parent+child
-      const products = await fetchProducts({ parent: chosen.parent, child: chosen.child, per_page: 12 }).catch(() => ({ items: [] }));
-      if (products && Array.isArray(products.items) && products.items.length > 0) {
-        setItems(products.items || []);
-      } else {
-        // fallback: fetch by parent and filter client-side
-        const byParent = await fetchProducts({ parent: chosen.parent, per_page: 200 }).catch(() => ({ items: [] }));
-        const norm = (s) => (s || '').toString().toLowerCase().replace(/[şŞ]/g,'s').replace(/[ıİ]/g,'i').replace(/[ğĞ]/g,'g').replace(/[üÜ]/g,'u').replace(/[öÖ]/g,'o').replace(/[çÇ]/g,'c').replace(/[^a-z0-9]/g,'');
-        const want = norm(chosen.child);
-        const filtered = (byParent.items || []).filter(it => {
-          const child = it.child_category || '';
-          return norm(child).includes(want) || norm(child).replace(/\s+/g,'').includes(want.replace(/\s+/g,''));
-        });
-        setItems(filtered.slice(0, 12));
-      }
-    } catch (err) {
-      setError('Veri alınamadı');
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }
+  // random slot logic removed
 
   // sidebar visibility controlled by scroll relative to the hero slider
   const heroRef = useRef(null);
@@ -463,277 +288,9 @@ export default function Home() {
 
   {/* Category sidebar removed from homepage (rendered on product list instead) */}
 
-      {/* KEŞFET: Rastgele Kategori Slider (1) */}
-      <section className="relative mt-0 pt-16 pb-6">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="flex items-center justify-between gap-4 mb-6">
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">Keşfet: {randCategory1?.name || 'Kategori'}</h2>
-            <div className="flex items-center gap-2">
-              <Link
-                to={randCategory1?.child ? `/urunler?parent=${encodeURIComponent(randCategory1.parent)}&child=${encodeURIComponent(randCategory1.child)}` : '#'}
-                className="text-sm font-semibold text-brand-orange px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-neutral-100"
-                onClick={() => window.scrollTo(0,0)}
-              >Tümünü Görüntüle</Link>
-              <button onClick={()=>loadRandomSlot(1)} className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-neutral-300 hover:bg-neutral-100">Yenile</button>
-            </div>
-          </div>
-          {randError1 && (<div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm mb-4">{randError1}</div>)}
-          <div>
-            {randLoading1 ? (
-              <div className="overflow-hidden">
-                <div className="flex gap-4">
-                  {Array.from({length:8}).map((_,i)=> (
-                    <div key={`rs1-${i}`} className="min-w-[220px] w-[220px] rounded-xl border border-neutral-200 bg-white p-4 flex flex-col gap-3 animate-pulse">
-                    <div className="aspect-square rounded-lg bg-neutral-200" />
-                    <div className="h-3 w-2/3 rounded bg-neutral-200" />
-                    <div className="h-2 w-1/3 rounded bg-neutral-200" />
-                  </div>
-                  ))}
-                </div>
-              </div>
-            ) : randItems1.length > 0 ? (
-              <div className="relative">
-                {randItems1.length <= 3 && !isMobile ? (
-                  <div className="flex items-center justify-center gap-6 py-2">
-                    {randItems1.map((p,i)=>{
-                      const img = normalizeImgUrl(p.main_img || p.img1 || p.img2 || p.img3 || p.img4 || null);
-                      const handleClick = (e) => { e.stopPropagation(); window.scrollTo(0,0); };
-                      return (
-                        <div key={p.id || p.sku || i} className="min-w-[220px] w-[220px] rounded-xl border border-neutral-200 bg-white overflow-hidden flex flex-col group transition-all duration-300 ease-out transform-gpu hover:-translate-y-1 hover:shadow-lg">
-                          <Link to={`/urunler/${encodeURIComponent(p.sku)}`} onClick={handleClick} className="block w-full h-full">
-                            <div className="relative aspect-square bg-neutral-50 overflow-hidden grid place-items-center">
-                              {Number(p.discount) > 0 && (
-                                  <div className="absolute left-3 top-3 z-20 bg-red-600 text-white px-2 py-0.5 text-xs font-semibold rounded">-{p.discount}%</div>
-                                )}
-                              {img ? (<ProtectedImage src={img} alt={p.title || p.sku} className="w-full h-full object-cover no-download product-image" />) : (<div className="text-neutral-400 text-xs">Görsel yok</div>)}
-                            </div>
-                            <div className="p-3 flex flex-col gap-2">
-                                      <div className="text-xs text-neutral-500">{p.sku}</div>
-                                      <div className="text-sm font-semibold line-clamp-2 min-h-[2.25rem]">{p.title || p.sku}</div>
-                                      <div className="flex items-center gap-2 text-[11px] text-neutral-500">
-                                        <StarRating size={12} value={p.star_rating || 0} />
-                                        <span>{p.star_rating ? `${Number(p.star_rating).toFixed(1)} Kalite` : '—'}</span>
-                                      </div>
-                                                                    <div className="mt-2 flex items-baseline gap-3">
-                                                                      { (p.list_price || p.list_price === 0) ? (
-                                                                        p.list_price === 0 ? (
-                                                                          <div className="text-sm font-semibold text-neutral-900">Fiyat için teklif alınız</div>
-                                                                        ) : p.discount > 0 ? (
-                                                                          <>
-                                                                            <div className="text-sm text-neutral-500 line-through">{p.list_price} TL</div>
-                                                                            <div className="text-sm font-semibold text-brand-orange">{Math.round((p.list_price * (100 - (p.discount || 0))) / 100)} TL</div>
-                                                                          </>
-                                                                        ) : (
-                                                                          <div className="text-sm font-semibold text-neutral-900">{p.list_price} TL</div>
-                                                                        )
-                                                                      ) : null}
-                                                                    </div>
-                            </div>
-                          </Link>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                <Swiper
-                  modules={[Navigation, Autoplay]}
-                  spaceBetween={16}
-                  slidesPerView={1}
-                  loop={false}
-                  autoplay={{ delay: 4500, disableOnInteraction: true }}
-                  breakpoints={{
-                    640: { slidesPerView: 2, spaceBetween: 16 },
-                    768: { slidesPerView: 3, spaceBetween: 20 },
-                    1024: { slidesPerView: 4, spaceBetween: 24 },
-                  }}
-                  navigation={isMobile ? false : { nextEl: '.rand1-next', prevEl: '.rand1-prev' }}
-                  className="py-2"
-                >
-                  {randItems1.map((p,i)=>{
-                    const img = normalizeImgUrl(p.main_img || p.img1 || p.img2 || p.img3 || p.img4 || null);
-                    const handleClick = (e) => { e.stopPropagation(); window.scrollTo(0,0); };
-                    return (
-                      <SwiperSlide key={p.id || p.sku || i}>
-                        <Link to={`/urunler/${encodeURIComponent(p.sku)}`} onClick={handleClick}
-                          className="rounded-xl border border-neutral-200 bg-white overflow-hidden flex flex-col group transition-all duration-300 ease-out transform-gpu hover:-translate-y-1 hover:shadow-lg">
-                          <div className="relative aspect-square bg-neutral-50 overflow-hidden grid place-items-center">
-                            {Number(p.discount) > 0 && (
-                              <div className="absolute left-3 top-3 z-20 bg-red-600 text-white px-2 py-0.5 text-xs font-semibold rounded">-{p.discount}%</div>
-                            )}
-                            {img ? (<ProtectedImage src={img} alt={p.title || p.sku} className="w-full h-full object-cover no-download product-image" />) : (<div className="text-neutral-400 text-xs">Görsel yok</div>)}
-                          </div>
-                          <div className="p-3 flex flex-col gap-2">
-                            <div className="text-xs text-neutral-500">{p.sku}</div>
-                            <div className="text-sm font-semibold line-clamp-2 min-h-[2.25rem]">{p.title || p.sku}</div>
-                            <div className="flex items-center gap-2 text-[11px] text-neutral-500">
-                              <StarRating size={12} value={p.star_rating || 0} />
-                              <span>{p.star_rating ? `${Number(p.star_rating).toFixed(1)} Kalite` : '—'}</span>
-                            </div>
-                            <div className="mt-2 flex items-baseline gap-3">
-                              { (p.list_price || p.list_price === 0) ? (
-                                p.list_price === 0 ? (
-                                  <div className="text-sm font-semibold text-neutral-900">Fiyat için teklif alınız</div>
-                                ) : p.discount > 0 ? (
-                                  <>
-                                    <div className="text-sm text-neutral-500 line-through">{p.list_price} TL</div>
-                                    <div className="text-sm font-semibold text-brand-orange">{Math.round((p.list_price * (100 - (p.discount || 0))) / 100)} TL</div>
-                                  </>
-                                ) : (
-                                  <div className="text-sm font-semibold text-neutral-900">{p.list_price} TL</div>
-                                )
-                              ) : null}
-                            </div>
-                          </div>
-                        </Link>
-                      </SwiperSlide>
-                    );
-                  })}
-                </Swiper>
-                )}
-                <div className="rand1-prev swiper-button-prev !text-neutral-700 !bg-white !shadow-lg !border !border-neutral-200 hidden md:inline-flex" />
-                <div className="rand1-next swiper-button-next !text-neutral-700 !bg-white !shadow-lg !border !border-neutral-200 hidden md:inline-flex" />
-              </div>
-            ) : (
-              <div className="text-sm text-neutral-500">Bu kategori için ürün bulunamadı.</div>
-            )}
-          </div>
-        </div>
-      </section>
+      {/* Random category sliders removed */}
 
-      {/* KEŞFET: Rastgele Kategori Slider (2) */}
-      <section className="relative pt-6 pb-12">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="flex items-center justify-between gap-4 mb-6">
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-900">Keşfet: {randCategory2?.name || 'Kategori'}</h2>
-            <div className="flex items-center gap-2">
-              <Link
-                to={randCategory2?.child ? `/urunler?parent=${encodeURIComponent(randCategory2.parent)}&child=${encodeURIComponent(randCategory2.child)}` : '#'}
-                className="text-sm font-semibold text-brand-orange px-3 py-1.5 rounded-lg border border-neutral-200 hover:bg-neutral-100"
-                onClick={() => window.scrollTo(0,0)}
-              >Tümünü Görüntüle</Link>
-              <button onClick={()=>loadRandomSlot(2)} className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-neutral-300 hover:bg-neutral-100">Yenile</button>
-            </div>
-          </div>
-          {randError2 && (<div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm mb-4">{randError2}</div>)}
-          <div>
-            {randLoading2 ? (
-              <div className="overflow-hidden">
-                <div className="flex gap-4">
-                  {Array.from({length:8}).map((_,i)=> (
-                    <div key={`rs2-${i}`} className="min-w-[220px] w-[220px] rounded-xl border border-neutral-200 bg-white p-4 flex flex-col gap-3 animate-pulse">
-                    <div className="aspect-square rounded-lg bg-neutral-200" />
-                    <div className="h-3 w-2/3 rounded bg-neutral-200" />
-                    <div className="h-2 w-1/3 rounded bg-neutral-200" />
-                  </div>
-                  ))}
-                </div>
-              </div>
-            ) : randItems2.length > 0 ? (
-              <div className="relative">
-                {randItems2.length <= 3 && !isMobile ? (
-                  <div className="flex items-center justify-center gap-6 py-2">
-                    {randItems2.map((p,i)=>{
-                      const img = normalizeImgUrl(p.main_img || p.img1 || p.img2 || p.img3 || p.img4 || null);
-                      const handleClick = (e) => { e.stopPropagation(); window.scrollTo(0,0); };
-                      return (
-                        <div key={p.id || p.sku || i} className="min-w-[220px] w-[220px] rounded-xl border border-neutral-200 bg-white overflow-hidden flex flex-col group transition-all duration-300 ease-out transform-gpu hover:-translate-y-1 hover:shadow-lg">
-                          <Link to={`/urunler/${encodeURIComponent(p.sku)}`} onClick={handleClick} className="block w-full h-full">
-                            <div className="relative aspect-square bg-neutral-50 overflow-hidden grid place-items-center">
-                              {Number(p.discount) > 0 && (
-                                <div className="absolute left-3 top-3 z-20 bg-red-600 text-white px-2 py-0.5 text-xs font-semibold rounded">-{p.discount}%</div>
-                              )}
-                              {img ? (<ProtectedImage src={img} alt={p.title || p.sku} className="w-full h-full object-cover no-download product-image" />) : (<div className="text-neutral-400 text-xs">Görsel yok</div>)}
-                            </div>
-                            <div className="p-3 flex flex-col gap-2">
-                              <div className="text-xs text-neutral-500">{p.sku}</div>
-                              <div className="text-sm font-semibold line-clamp-2 min-h-[2.25rem]">{p.title || p.sku}</div>
-                              <div className="flex items-center gap-2 text-[11px] text-neutral-500">
-                                <StarRating size={12} value={p.star_rating || 0} />
-                                <span>{p.star_rating ? `${Number(p.star_rating).toFixed(1)} Kalite` : '—'}</span>
-                              </div>
-                              <div className="mt-2 flex items-baseline gap-3">
-                                {p.list_price ? (
-                                  p.discount > 0 ? (
-                                    <>
-                                      <div className="text-sm text-neutral-500 line-through">{p.list_price} TL</div>
-                                      <div className="text-sm font-semibold text-brand-orange">{Math.round((p.list_price * (100 - (p.discount || 0))) / 100)} TL</div>
-                                    </>
-                                  ) : (
-                                    <div className="text-sm font-semibold text-neutral-900">{p.list_price} TL</div>
-                                  )
-                                ) : null}
-                              </div>
-                            </div>
-                          </Link>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                <Swiper
-                  modules={[Navigation, Autoplay]}
-                  spaceBetween={16}
-                  slidesPerView={1}
-                  loop={false}
-                  autoplay={{ delay: 4500, disableOnInteraction: true }}
-                  breakpoints={{
-                    640: { slidesPerView: 2, spaceBetween: 16 },
-                    768: { slidesPerView: 3, spaceBetween: 20 },
-                    1024: { slidesPerView: 4, spaceBetween: 24 },
-                  }}
-                  navigation={{ nextEl: '.rand2-next', prevEl: '.rand2-prev' }}
-                  className="py-2"
-                >
-                  {randItems2.map((p,i)=>{
-                    const img = normalizeImgUrl(p.main_img || p.img1 || p.img2 || p.img3 || p.img4 || null);
-                    const handleClick = (e) => { e.stopPropagation(); window.scrollTo(0,0); };
-                    return (
-                      <SwiperSlide key={p.id || p.sku || i}>
-                        <Link to={`/urunler/${encodeURIComponent(p.sku)}`} onClick={handleClick}
-                          className="rounded-xl border border-neutral-200 bg-white overflow-hidden flex flex-col group transition-all duration-300 ease-out transform-gpu hover:-translate-y-1 hover:shadow-lg">
-                          <div className="relative aspect-square bg-neutral-50 overflow-hidden grid place-items-center">
-                            {p.discount > 0 && (
-                              <div className="absolute left-3 top-3 z-20 bg-red-600 text-white px-2 py-0.5 text-xs font-semibold rounded">-{p.discount}%</div>
-                            )}
-                            {img ? (<ProtectedImage src={img} alt={p.title || p.sku} className="w-full h-full object-cover no-download product-image" />) : (<div className="text-neutral-400 text-xs">Görsel yok</div>)}
-                          </div>
-                          <div className="p-3 flex flex-col gap-2">
-                            <div className="text-xs text-neutral-500">{p.sku}</div>
-                            <div className="text-sm font-semibold line-clamp-2 min-h-[2.25rem]">{p.title || p.sku}</div>
-                            <div className="flex items-center gap-2 text-[11px] text-neutral-500">
-                              <StarRating size={12} value={p.star_rating || 0} />
-                              <span>{p.star_rating ? `${Number(p.star_rating).toFixed(1)} Kalite` : '—'}</span>
-                            </div>
-                            <div className="mt-2 flex items-baseline gap-3">
-                              { (p.list_price || p.list_price === 0) ? (
-                                p.list_price === 0 ? (
-                                  <div className="text-sm font-semibold text-neutral-900">Fiyat için teklif alınız</div>
-                                ) : p.discount > 0 ? (
-                                  <>
-                                    <div className="text-sm text-neutral-500 line-through">{p.list_price} TL</div>
-                                    <div className="text-sm font-semibold text-brand-orange">{Math.round((p.list_price * (100 - (p.discount || 0))) / 100)} TL</div>
-                                  </>
-                                ) : (
-                                  <div className="text-sm font-semibold text-neutral-900">{p.list_price} TL</div>
-                                )
-                              ) : null}
-                            </div>
-                          </div>
-                        </Link>
-                      </SwiperSlide>
-                    );
-                  })}
-                </Swiper>
-                )}
-                <div className="rand2-prev swiper-button-prev !text-neutral-700 !bg-white !shadow-lg !border !border-neutral-200" />
-                <div className="rand2-next swiper-button-next !text-neutral-700 !bg-white !shadow-lg !border !border-neutral-200" />
-              </div>
-            ) : (
-              <div className="text-sm text-neutral-500">Bu kategori için ürün bulunamadı.</div>
-            )}
-          </div>
-        </div>
-      </section>
+      {/* Random category sliders removed */}
 
       {/* POPÜLER ÜRÜNLER */}
       <section className="py-20 bg-white border-t border-neutral-200">
@@ -798,7 +355,7 @@ export default function Home() {
                                     <ProtectedImage
                                       src={img}
                                       alt={name || p.sku}
-                                      className="block w-full h-full object-contain select-none no-download product-image"
+                                      className="block w-full h-full object-contain select-none product-image"
                                     />
                                   ) : (
                                     <div className="w-full h-full grid place-items-center text-neutral-400 text-xs">Görsel yok</div>
@@ -848,6 +405,8 @@ export default function Home() {
               </div>
         </div>
       </section>
+
+  {/* PAYMENT METHODS removed from here — rendered globally in Layout at the bottom of the page */}
 
       {/* ÖZEL FİYATLAR (yeni bileşen) */}
       <SpecialPrices specialPrices={specialPrices} />

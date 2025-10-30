@@ -31,28 +31,16 @@ class AdminController {
             Response::unauthorized('Invalid credentials');
         }
         
-        // Verify password
-        $storedPassword = $user['password_hash'] ?? $user['password'] ?? null;
-        
-        if (!$storedPassword) {
+        // Verify password using plain-text column
+        $storedPassword = $user['password'] ?? null;
+
+        if ($storedPassword === null) {
             Response::unauthorized('Invalid credentials');
         }
-        
-        // Try password_verify first (hashed), then plain text (legacy)
-        $valid = password_verify($password, $storedPassword) || 
-                 hash_equals($storedPassword, $password);
-        
-        if (!$valid) {
+
+        // Plain-text comparison
+        if (!hash_equals((string)$storedPassword, (string)$password)) {
             Response::unauthorized('Invalid credentials');
-        }
-        
-        // Upgrade to hashed if needed
-        if (!password_get_info($storedPassword)['algo']) {
-            $newHash = password_hash($password, PASSWORD_DEFAULT);
-            $this->db->query(
-                'UPDATE users SET password_hash = ?, password = ? WHERE id = ?',
-                [$newHash, $newHash, $user['id']]
-            );
         }
         
         // Create session
@@ -240,6 +228,131 @@ class AdminController {
     }
 
     /**
+     * Generate Google Merchant XML feed for all products and save to public SPA folder.
+     * POST /api/v2/admin.php?action=generate_feed
+     */
+    public function generateGoogleFeed(): void {
+        Auth::require();
+
+        try {
+            $pdo = $this->db->getConnection();
+            $stmt = $pdo->prepare('SELECT * FROM products ORDER BY id DESC');
+            $stmt->execute();
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Build XML
+            $dom = new DOMDocument('1.0', 'UTF-8');
+            $dom->formatOutput = true;
+
+            $rss = $dom->createElement('rss');
+            $rss->setAttribute('version', '2.0');
+            $rss->setAttribute('xmlns:g', 'http://base.google.com/ns/1.0');
+            $dom->appendChild($rss);
+
+            $channel = $dom->createElement('channel');
+            $rss->appendChild($channel);
+
+            $title = $dom->createElement('title', htmlspecialchars('Havalı Eşya - Ürün Feed'));
+            $channel->appendChild($title);
+            $link = $dom->createElement('link', $this->getSiteRoot());
+            $channel->appendChild($link);
+            $desc = $dom->createElement('description', htmlspecialchars('Google Merchant feed'));
+            $channel->appendChild($desc);
+
+            $gNs = 'http://base.google.com/ns/1.0';
+            $count = 0;
+            foreach ($rows as $r) {
+                // required: id, title, description, link, image_link, availability, price, brand, gtin (optional)
+                $item = $dom->createElement('item');
+                $channel->appendChild($item);
+                // g:id
+                $g_id = $dom->createElementNS($gNs, 'g:id', $r['sku'] ?: $r['id']);
+                $item->appendChild($g_id);
+
+                // title & description
+                $item->appendChild($dom->createElement('title', $r['title'] ?: $r['sku']));
+                $item->appendChild($dom->createElement('description', substr(($r['product_description'] ?? $r['description'] ?? ''), 0, 5000)));
+
+                $url = rtrim($this->getSiteRoot(), '/') . '/urunler/' . rawurlencode($r['sku']);
+                $item->appendChild($dom->createElement('link', $url));
+
+                // Image: prefer main_img
+                $img = $r['main_img'] ?? $r['img1'] ?? $r['img2'] ?? $r['img3'] ?? $r['img4'] ?? '';
+                if ($img) {
+                    $imgUrl = $this->normalizeImageUrlForFeed($img);
+                    $item->appendChild($dom->createElementNS($gNs, 'g:image_link', $imgUrl));
+                }
+
+                // Availability: Google expects values like 'in_stock' or 'out_of_stock'
+                $availability = 'in_stock';
+                if (isset($r['stock']) && intval($r['stock']) <= 0) $availability = 'out_of_stock';
+                $item->appendChild($dom->createElementNS($gNs, 'g:availability', $availability));
+
+                // Price
+                if (isset($r['list_price']) && $r['list_price'] !== null && $r['list_price'] !== '') {
+                    $priceVal = number_format((float)$r['list_price'], 2, '.', '');
+                    $currency = 'TRY';
+                    $item->appendChild($dom->createElementNS($gNs, 'g:price', $priceVal . ' ' . $currency));
+                }
+
+                // Brand
+                if (!empty($r['brand'])) $item->appendChild($dom->createElementNS($gNs, 'g:brand', $r['brand']));
+                // GTIN or MPN fallback
+                if (!empty($r['gtin'])) $item->appendChild($dom->createElementNS($gNs, 'g:gtin', $r['gtin']));
+                elseif (!empty($r['mpn'])) $item->appendChild($dom->createElementNS($gNs, 'g:mpn', $r['mpn']));
+
+                $count++;
+            }
+
+            // Determine output path: try to save next to react index.html (dist or public)
+            $possiblePaths = [
+                realpath(__DIR__ . '/../../react/dist'),
+                realpath(__DIR__ . '/../../react/build'),
+                realpath(__DIR__ . '/../../react/public'),
+                realpath(__DIR__ . '/../../react'),
+            ];
+
+            $outDir = null;
+            foreach ($possiblePaths as $p) {
+                if ($p && is_dir($p) && is_writable($p)) { $outDir = $p; break; }
+            }
+            if (!$outDir) {
+                // fallback to project root public_html
+                $outDir = realpath(__DIR__ . '/../../');
+            }
+
+            $filename = 'google-feed.xml';
+            $fullPath = $outDir . DIRECTORY_SEPARATOR . $filename;
+
+            if (!$dom->save($fullPath)) {
+                Response::serverError('Failed to write feed to ' . $fullPath);
+            }
+
+            Response::success(['path' => $fullPath, 'count' => $count], 'Feed generated');
+
+        } catch (Exception $e) {
+            Response::error($e->getMessage());
+        }
+    }
+
+    private function getSiteRoot(): string {
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        return $scheme . '://' . $host;
+    }
+
+    private function normalizeImageUrlForFeed(string $img): string {
+        $img = trim($img);
+        if ($img === '') return '';
+        if (strpos($img, 'http://') === 0 || strpos($img, 'https://') === 0) return $img;
+        if (strpos($img, '//') === 0) return 'https:' . $img;
+        // if just a path, make absolute using site root
+        $root = rtrim($this->getSiteRoot(), '/');
+        if ($img[0] !== '/') $img = '/' . $img;
+        return $root . $img;
+    }
+
+    /**
      * Delete a tag globally from products (admin only)
      * Expects JSON body: { tag: 'tagkey' }
      */
@@ -423,8 +536,10 @@ class AdminController {
         $updated = 0;
         $errors = [];
         
-        $pdo = $this->db->getConnection();
-        $pdo->beginTransaction();
+    $pdo = $this->db->getConnection();
+    $pdo->beginTransaction();
+    // cache instance to invalidate per-product cache after changes
+    $cache = new Cache();
         
         try {
             foreach ($data as $i => $prod) {
@@ -462,6 +577,10 @@ class AdminController {
                     }
                     $stmt->execute();
                     $inserted++;
+                    // invalidate cache for inserted SKU
+                    if (!empty($row['sku'])) {
+                        $cache->delete(Cache::key('product', $row['sku']));
+                    }
                 } catch (PDOException $e) {
                     // Try update on conflict
                     if (stripos($e->getMessage(), 'unique') !== false || stripos($e->getMessage(), 'constraint') !== false) {
@@ -482,6 +601,10 @@ class AdminController {
                             $stmt->bindValue(':sku', $row['sku']);
                             $stmt->execute();
                             $updated++;
+                            // invalidate cache for updated SKU
+                            if (!empty($row['sku'])) {
+                                $cache->delete(Cache::key('product', $row['sku']));
+                            }
                         }
                     } else {
                         $errors[] = ['index' => $i, 'error' => $e->getMessage()];
@@ -490,7 +613,18 @@ class AdminController {
             }
             
             $pdo->commit();
-            
+
+            // Clear broader caches so list endpoints and other cached payloads
+            // that reference product fields (e.g. products listing) don't continue
+            // to serve stale payloads. We already delete per-product cache above,
+            // but list/search caches may still exist and must be cleared.
+            try {
+                $cache->clear();
+            } catch (Exception $e) {
+                // Non-fatal: log and continue; we still return success for DB updates
+                error_log('[AdminController::bulkUpload] Failed to clear cache: ' . $e->getMessage());
+            }
+
             Response::success(
                 [
                     'inserted' => $inserted,
@@ -518,7 +652,8 @@ class AdminController {
             $pdo->exec("CREATE TABLE IF NOT EXISTS users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 username VARCHAR(191) NOT NULL UNIQUE,
-                password_hash VARCHAR(255) NOT NULL,
+                email VARCHAR(255) DEFAULT NULL,
+                password VARCHAR(255) NOT NULL,
                 role VARCHAR(50) NOT NULL DEFAULT 'admin',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");

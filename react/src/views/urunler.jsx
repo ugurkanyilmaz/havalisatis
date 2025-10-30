@@ -24,7 +24,7 @@ function ProductCard({ p }) {
             <ProtectedImage
               src={img}
               alt={p.title || p.sku}
-              className="block w-full h-full object-cover select-none transition-transform duration-300 ease-out group-hover:scale-[1.03] no-download product-image"
+              className="block w-full h-full object-cover select-none transition-transform duration-300 ease-out group-hover:scale-[1.03] product-image"
               onClick={() => { /* no-op, link wraps image */ }}
             />
           ) : (

@@ -3,6 +3,7 @@ import logo from '../components/ketenlogoson.fw_.png';
 import ProtectedImage from '../components/ProtectedImage.jsx';
 import { SOCIAL_LINKS } from '../lib/socialLinks.js';
 import Footer from '../components/Footer.jsx';
+import PaymentMethods from '../components/PaymentMethods.jsx';
 import { useEffect, useState, useRef } from 'react';
 import { fetchProducts } from '../lib/api_calls.js';
 // Backend API removed — search suggestions unavailable
@@ -80,19 +81,9 @@ export default function Layout(){
     };
   }, []);
 
-  // Disable right-click (context menu) on product images marked with `.no-download`
-  useEffect(() => {
-    const onContextMenu = (e) => {
-      const target = e.target;
-      // If the target is an image with the no-download marker, prevent context menu
-      if (target && target.tagName === 'IMG' && (target.classList.contains('no-download') || target.closest?.('.no-download'))) {
-        e.preventDefault();
-        return false;
-      }
-    };
-    document.addEventListener('contextmenu', onContextMenu);
-    return () => document.removeEventListener('contextmenu', onContextMenu);
-  }, []);
+  // Previously we disabled right-click on `.no-download` images to prevent downloads.
+  // That behavior caused usability problems (zoom/lightbox and accessibility). We now
+  // allow the native context menu for images so users can open/save as needed.
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -350,6 +341,8 @@ export default function Layout(){
         </div>
       )}
   <main className="flex-1 pb-[calc(1rem+env(safe-area-inset-bottom))] md:pb-0"><Outlet /></main>
+  {/* Güvenli Ödeme Yöntemleri site-genel alt bilgi olarak gösteriliyor */}
+  <PaymentMethods />
   <Footer />
     </div>
   );

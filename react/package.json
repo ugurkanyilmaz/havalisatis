@@ -10,12 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "lucide-react": "^0.548.0",
     "prop-types": "^15.8.1",
-    "swiper": "^10.0.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-helmet-async": "^2.0.5",
     "react-router-dom": "^7.8.2",
-    "react-helmet-async": "^2.0.5"
+    "swiper": "^10.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

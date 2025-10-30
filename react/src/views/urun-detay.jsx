@@ -96,6 +96,7 @@ function ProductGallery({ product }) {
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
+  const [didPan, setDidPan] = useState(false);
   const panStart = useRef({ x: 0, y: 0 });
   const offsetStart = useRef({ x: 0, y: 0 });
   const lastTouchDist = useRef(null);
@@ -155,6 +156,11 @@ function ProductGallery({ product }) {
     setOffset(clampOffset(offsetStart.current.x + dx, offsetStart.current.y + dy, zoom));
   };
   const endPan = () => setIsPanning(false);
+
+  // mark that a pan happened (to avoid interpreting pan end as a click to close)
+  useEffect(() => {
+    if (isPanning) setDidPan(true);
+  }, [isPanning]);
 
   // Touch gestures (pinch + swipe)
   const onTouchStart = (e) => {
@@ -275,7 +281,7 @@ function ProductGallery({ product }) {
                 aria-label={`Görsel ${i+1}`}
               >
                   <div className="w-full h-full bg-gray-50 grid place-items-center">
-                    <ProtectedImage src={u} alt={product?.title || product?.sku || 'ürün görseli'} className="w-full h-full object-contain no-download product-image" style={{ backgroundSize: 'contain', backgroundPosition: 'center' }} allowNativeOnMobile={true} />
+                    <ProtectedImage src={u} alt={product?.title || product?.sku || 'ürün görseli'} className="w-full h-full object-contain product-image" style={{ backgroundSize: 'contain', backgroundPosition: 'center' }} allowNativeOnMobile={true} />
                   </div>
               </button>
             ))}
@@ -328,7 +334,7 @@ function ProductGallery({ product }) {
                 ref={imgRef}
                 src={current}
                 alt={product?.title || product?.sku}
-                className="absolute inset-0 w-full h-full object-cover select-none cursor-zoom-in no-download product-image"
+                className="absolute inset-0 w-full h-full object-cover select-none cursor-zoom-in product-image"
                 style={{ backgroundSize: 'contain', backgroundPosition: 'center' }}
                 onClick={() => setLightbox(true)}
                 allowNativeOnMobile={true}
@@ -388,7 +394,7 @@ function ProductGallery({ product }) {
               aria-label={`Görsel ${i+1}`}
             >
               <div className="w-full h-full bg-gray-50 grid place-items-center">
-                <ProtectedImage src={u} alt={product?.title || product?.sku || 'ürün görseli'} className="w-full h-full object-contain no-download product-image" style={{ backgroundSize: 'contain', backgroundPosition: 'center' }} allowNativeOnMobile={true} />
+                <ProtectedImage src={u} alt={product?.title || product?.sku || 'ürün görseli'} className="w-full h-full object-contain product-image" style={{ backgroundSize: 'contain', backgroundPosition: 'center' }} allowNativeOnMobile={true} />
               </div>
             </button>
           ))}
@@ -396,11 +402,11 @@ function ProductGallery({ product }) {
       )}
       {/* Lightbox fullscreen viewer */}
       {lightbox && (
-        <div
+          <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex flex-col no-download"
-          onClick={(e) => { if (e.target === e.currentTarget) setLightbox(false); }}
+          className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex flex-col"
+          onClick={(e) => { if (e.target === e.currentTarget && !didPan) setLightbox(false); else if (e.target === e.currentTarget) setDidPan(false); }}
         >
           <div className="flex items-center justify-between px-4 py-3 text-white text-sm">
             <div className="font-medium truncate max-w-[60%]">{product?.title || product?.sku}</div>
@@ -420,7 +426,7 @@ function ProductGallery({ product }) {
           <div className="flex-1 flex items-center justify-center px-4 pb-8 select-none">
             {current ? (
               <div
-                className="relative max-h-[75vh] max-w-[90vw] flex items-center justify-center"
+                className="relative max-h-[70vh] max-w-[85vw] flex items-center justify-center"
                 onWheel={onWheel}
                 onMouseDown={onMouseDown}
                 onMouseMove={onMouseMovePan}
@@ -429,17 +435,28 @@ function ProductGallery({ product }) {
                 onTouchStart={onTouchStart}
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
+                // allow touch/pan gestures; prevent browser from interpreting single-finger pans as nav
+                style={{ touchAction: zoom > 1 ? 'pan-x pan-y' : 'manipulation', WebkitUserSelect: 'none' }}
               >
                 <div
-                  className="select-none pointer-events-none no-download product-image"
+                  className="select-none product-image"
                   style={{
-                    maxHeight: '75vh',
-                    maxWidth: '90vw',
-                    transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                    // fixed viewport-based container so image sizing is predictable
+                    width: '85vw',
+                    height: '70vh',
+                    maxWidth: '85vw',
+                    maxHeight: '70vh',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transformOrigin: 'center center',
+                    // when not zoomed (zoom===1) start slightly scaled down so fullscreen view appears "farther"
+                    transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom === 1 ? 0.95 : zoom})`,
                     transition: isPanning ? 'none' : 'transform 0.15s ease-out'
                   }}
                 >
-                  <ProtectedImage src={current} alt={product?.title || product?.sku} style={{ backgroundSize: 'contain', backgroundPosition: 'center' }} />
+                  <ProtectedImage src={current} alt={product?.title || product?.sku} className="object-contain" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 </div>
               </div>
             ) : (
@@ -700,7 +717,7 @@ function RelatedSlider({ items }) {
                         <div className="absolute left-3 top-3 z-20 bg-red-600 text-white px-2 py-0.5 text-xs font-semibold rounded">-{r.discount}%</div>
                       )}
                       {rimg ? (
-                        <ProtectedImage src={rimg} alt={r.title || r.sku} className="block w-full h-full object-cover select-none no-download product-image" />
+                        <ProtectedImage src={rimg} alt={r.title || r.sku} className="block w-full h-full object-cover select-none product-image" />
                       ) : (
                         <div className="w-full h-full grid place-items-center text-neutral-400 text-xs">Görsel yok</div>
                       )}

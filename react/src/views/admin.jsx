@@ -375,6 +375,28 @@ export default function AdminPanel() {
                 } catch (e) { alert('Export error: ' + e.message); }
               }}>CSV İndir</button>
             </div>
+            {/* Google Feed generator */}
+            <div className="mt-3">
+              <button
+                className="w-full px-3 py-2 bg-indigo-600 text-white rounded text-sm font-medium hover:bg-indigo-700 transition"
+                onClick={async () => {
+                  if (!confirm('Google feed oluşturulsun mu? Varolan feed üzerine yazılacaktır.')) return;
+                  try {
+                    const res = await fetch('/api/v2/admin.php?action=generate_feed', { method: 'POST', credentials: 'include' });
+                    const j = await res.json();
+                    if (!res.ok || !j.success) {
+                      alert('Feed oluşturulamadı: ' + (j.message || JSON.stringify(j)));
+                      return;
+                    }
+                    alert('Feed oluşturuldu: ' + (j.data?.path || '') + '\nÜrün sayısı: ' + (j.data?.count ?? 0));
+                  } catch (err) {
+                    alert('Feed oluşturma hatası: ' + err.message);
+                  }
+                }}
+              >
+                🟣 Google Feed Oluştur
+              </button>
+            </div>
           </div>
         </div>
         <div className="flex items-center justify-between mb-4">

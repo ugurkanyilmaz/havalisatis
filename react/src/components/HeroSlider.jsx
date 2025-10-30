@@ -141,7 +141,9 @@ export default function HeroSlider({ onFirstShown }){
                   <img
                     src={s.image}
                     alt=""
-                    className="absolute inset-0 w-full h-full object-cover select-none no-download product-image"
+                    // Mark the currently visible slide's image as high priority for browser fetching
+                    {...(active ? { fetchPriority: 'high', fetchpriority: 'high', loading: 'eager' } : { loading: 'lazy' })}
+                    className="absolute inset-0 w-full h-full object-cover select-none product-image"
                     style={{ objectPosition: (isMobile ? (s.imagePosMobile || s.imagePos) : s.imagePos) || '50% 50%' }}
                     draggable={false}
                   />
